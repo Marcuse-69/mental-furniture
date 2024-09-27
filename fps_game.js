@@ -39,19 +39,19 @@ const nexuses = [];
 const nexusCount = 7;
 const nodeCount = 400; // Increased from 60 to 400
 
-// Add these variables for music control
 let backgroundMusic;
 let musicPlaying = false;
 
 function createMusicButton() {
-    let musicButton = document.getElementById('musicButton');
-    if (!musicButton) {
-        musicButton = document.createElement('button');
-        musicButton.id = 'musicButton';
-        musicButton.textContent = 'Play Music';
-        document.body.appendChild(musicButton);
-    }
-    return musicButton;
+    const button = document.createElement('button');
+    button.id = 'musicButton';
+    button.textContent = 'Play Music';
+    button.style.position = 'fixed';
+    button.style.top = '20px';
+    button.style.left = '20px';
+    button.style.zIndex = '9999';
+    document.body.appendChild(button);
+    return button;
 }
 
 function initializeMusic() {
@@ -75,19 +75,20 @@ function initializeMusic() {
     });
 }
 
-// Modify the init function to include music initialization
 function init() {
-    // ... existing initialization code ...
+    // Existing initialization code...
     
     initializeMusic();
     
-    // ... rest of the initialization code ...
+    // Rest of the initialization code...
 }
 
-// Wrap the init function in a DOMContentLoaded event listener
-document.addEventListener('DOMContentLoaded', () => {
+// Ensure the DOM is fully loaded before running the init function
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
     init();
-});
+}
 
 // Set up controls
 const moveSpeed = 0.1;
