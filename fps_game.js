@@ -37,7 +37,7 @@ scene.add(floor);
 // Create point cloud nexuses
 const nexuses = [];
 const nexusCount = 7;
-const nodeCount = 60;
+const nodeCount = 400; // Increased from 60 to 400
 
 function createNexus() {
     const geometry = new THREE.BufferGeometry();
@@ -57,7 +57,7 @@ function createNexus() {
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-    const material = new THREE.PointsMaterial({ size: 0.05, vertexColors: true });
+    const material = new THREE.PointsMaterial({ size: 0.03, vertexColors: true }); // Reduced size to accommodate more points
     const nexus = new THREE.Points(geometry, material);
     nexus.position.set(Math.random() * 10 - 5, Math.random() * 4 + 1, Math.random() * 10 - 5);
     nexus.userData.velocity = new THREE.Vector3(
