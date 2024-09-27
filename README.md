@@ -1,17 +1,12 @@
-VIRTUELE ORGANISATIE WONINGTEKORT IN VOGEVLUCHT. 
-EEN F PERSON SCOOTER
-VOOR JONG EN OUD
+# FPS Game Framework
 
-Draag bij
-of draag mij
-want ik woon
-want ik woon
+This is a basic framework for a first-person shooter game using Three.js.
 
-je moeder
+[Play the game](https://yourusername.github.io/your-repo-name/)
 
-tuuuuntele worteltjes
-daaronder
+## Files
 
-ik ben je buurman
-
-ik ben je buurman
+- `index.html`: The main HTML file that loads the game
+- `fps_game.js`: The JavaScript file containing the game logic
+- `fps_styles.css`: The CSS file for styling the game
+- `lacanian_desire_background.jpg`: The background image for the game

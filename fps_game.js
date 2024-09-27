@@ -6,8 +6,11 @@ document.body.appendChild(renderer.domElement);
 
 // Load the background texture
 const textureLoader = new THREE.TextureLoader();
-const backgroundTexture = textureLoader.load('lacanian_desire_background.jpg');
-scene.background = backgroundTexture;
+const backgroundTexture = textureLoader.load('lacanian_desire_background.jpg', () => {
+    scene.background = backgroundTexture;
+}, undefined, (error) => {
+    console.error('An error occurred while loading the background texture:', error);
+});
 
 // Set up camera position
 camera.position.z = 5;
