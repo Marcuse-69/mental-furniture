@@ -1,3 +1,6 @@
+import * as THREE from 'three';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
 // Set up the scene, camera, and renderer
 let camera, scene, renderer, controls;
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
@@ -22,7 +25,7 @@ function init() {
     document.body.appendChild(renderer.domElement);
 
     // Set up controls
-    controls = new THREE.PointerLockControls(camera, renderer.domElement);
+    controls = new PointerLockControls(camera, renderer.domElement);
     scene.add(controls.getObject());
 
     document.addEventListener('click', () => {
