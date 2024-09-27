@@ -217,6 +217,13 @@ function animate() {
     // Update LOD
     updateLOD();
 
+    // Update video texture
+    const video = document.getElementById('platformVideo');
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        const texture = platform.material.map;
+        texture.needsUpdate = true;
+    }
+
     renderer.render(scene, camera);
 }
 
