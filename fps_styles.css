@@ -27,3 +27,17 @@ canvas {
 #musicButton:hover {
     background-color: darkred;
 }
+
+#gameContainer {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+}
+
+#game {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
