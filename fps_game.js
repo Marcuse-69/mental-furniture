@@ -37,7 +37,7 @@ scene.add(floor);
 // Create point cloud nexuses
 const nexuses = [];
 const nexusCount = 7;
-const nodeCount = 2000; // Increased to 2000 as requested
+const nodeCount = 400; // Increased from 60 to 400
 
 // LOD settings
 const lodLevels = [
@@ -107,6 +107,25 @@ function createNexus() {
 for (let i = 0; i < nexusCount; i++) {
     nexuses.push(createNexus());
 }
+
+// Add this function to create the platform with the GIF texture
+function createPlatform() {
+    const geometry = new THREE.BoxGeometry(20, 0.1, 20);
+    
+    // Create texture from the GIF
+    const texture = new THREE.TextureLoader().load('f8c98706b7f2db9449662a4339d6269d.gif');
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1, 1); // Adjust this if you want the texture to repeat
+
+    const material = new THREE.MeshBasicMaterial({ map: texture });
+    const platform = new THREE.Mesh(geometry, material);
+    platform.position.y = -2; // Adjust this value to set the platform's height
+    scene.add(platform);
+}
+
+// Call this function where you set up your scene
+createPlatform();
 
 // Set up controls
 const moveSpeed = 0.1;
