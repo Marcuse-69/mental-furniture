@@ -1,5 +1,5 @@
 // Set up the scene, camera, and renderer
-let scene, camera, renderer, controls;
+let camera, scene, renderer, controls;
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
 let prevTime = performance.now();
 let velocity = new THREE.Vector3();
@@ -15,7 +15,6 @@ const nexusCount = 7;
 const nodeCount = 400; // Increased from 60 to 400
 
 function init() {
-    // Set up the scene, camera, and renderer
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     renderer = new THREE.WebGLRenderer();
@@ -24,8 +23,8 @@ function init() {
 
     // Set up controls
     controls = new THREE.PointerLockControls(camera, renderer.domElement);
+    scene.add(controls.getObject());
 
-    // Add event listeners for controls
     document.addEventListener('click', () => {
         controls.lock();
     });
@@ -38,16 +37,13 @@ function init() {
         createNexus();
     }
 
-    // Position camera
     camera.position.y = 10;
 
     initializeMusic();
     initializeMobileControls();
     
-    // Add automatic camera movement
     setInterval(autoCameraMovement, 50);
 
-    // Start animation loop
     animate();
 }
 
@@ -220,23 +216,25 @@ function autoCameraMovement() {
 function animate() {
     requestAnimationFrame(animate);
 
-    const time = performance.now();
-    const delta = (time - prevTime) / 1000;
+    if (controls.isLocked === true) {
+        const time = performance.now();
+        const delta = (time - prevTime) / 1000;
 
-    velocity.x -= velocity.x * 10.0 * delta;
-    velocity.z -= velocity.z * 10.0 * delta;
+        velocity.x -= velocity.x * 10.0 * delta;
+        velocity.z -= velocity.z * 10.0 * delta;
 
-    direction.z = Number(moveForward) - Number(moveBackward);
-    direction.x = Number(moveRight) - Number(moveLeft);
-    direction.normalize();
+        direction.z = Number(moveForward) - Number(moveBackward);
+        direction.x = Number(moveRight) - Number(moveLeft);
+        direction.normalize();
 
-    if (moveForward || moveBackward) velocity.z -= direction.z * 400.0 * delta;
-    if (moveLeft || moveRight) velocity.x -= direction.x * 400.0 * delta;
+        if (moveForward || moveBackward) velocity.z -= direction.z * 400.0 * delta;
+        if (moveLeft || moveRight) velocity.x -= direction.x * 400.0 * delta;
 
-    controls.moveRight(-velocity.x * delta);
-    controls.moveForward(-velocity.z * delta);
+        controls.moveRight(-velocity.x * delta);
+        controls.moveForward(-velocity.z * delta);
 
-    prevTime = time;
+        prevTime = time;
+    }
 
     renderer.render(scene, camera);
 }
