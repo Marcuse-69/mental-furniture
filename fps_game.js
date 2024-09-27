@@ -44,11 +44,14 @@ let backgroundMusic;
 let musicPlaying = false;
 
 function createMusicButton() {
-    const button = document.createElement('button');
-    button.id = 'musicButton';
-    button.textContent = 'Play Music';
-    document.body.appendChild(button);
-    return button;
+    let musicButton = document.getElementById('musicButton');
+    if (!musicButton) {
+        musicButton = document.createElement('button');
+        musicButton.id = 'musicButton';
+        musicButton.textContent = 'Play Music';
+        document.body.appendChild(musicButton);
+    }
+    return musicButton;
 }
 
 function initializeMusic() {
@@ -80,6 +83,11 @@ function init() {
     
     // ... rest of the initialization code ...
 }
+
+// Wrap the init function in a DOMContentLoaded event listener
+document.addEventListener('DOMContentLoaded', () => {
+    init();
+});
 
 // Set up controls
 const moveSpeed = 0.1;
