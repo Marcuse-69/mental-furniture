@@ -51,8 +51,8 @@ function createMusicButton() {
     button.style.left = '50%';
     button.style.transform = 'translate(-50%, -50%)';
     button.style.zIndex = '9999';
-    button.style.padding = '15px 30px';
-    button.style.fontSize = '18px';
+    button.style.padding = '10px 20px'; // Reduced padding
+    button.style.fontSize = '14px'; // Reduced font size
     button.style.backgroundColor = 'red';
     button.style.color = 'white';
     button.style.border = 'none';
@@ -92,8 +92,19 @@ function initializeMusic() {
         }
     });
 
-    // Keep click functionality as well
-    musicButton.addEventListener('click', toggleMusic);
+    // Add event listener for clicking anywhere on the screen
+    document.addEventListener('click', (event) => {
+        // Check if the click is not on the music button
+        if (event.target !== musicButton) {
+            toggleMusic();
+        }
+    });
+
+    // Keep click functionality for the button as well
+    musicButton.addEventListener('click', (event) => {
+        event.stopPropagation(); // Prevent the document click event from firing
+        toggleMusic();
+    });
 }
 
 function init() {
