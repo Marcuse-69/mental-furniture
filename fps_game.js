@@ -1,6 +1,13 @@
 const canvas = document.getElementById('game-canvas');
 const scoreElement = document.getElementById('score-value');
 
+// Check if Three.js is loaded
+if (typeof THREE === 'undefined') {
+    console.error('Three.js is not loaded. Please check your internet connection and try again.');
+} else {
+    console.log('Three.js is loaded successfully.');
+}
+
 // Three.js setup
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
