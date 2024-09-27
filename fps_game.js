@@ -43,9 +43,18 @@ const nodeCount = 400; // Increased from 60 to 400
 let backgroundMusic;
 let musicPlaying = false;
 
+function createMusicButton() {
+    const button = document.createElement('button');
+    button.id = 'musicButton';
+    button.textContent = 'Play Music';
+    document.body.appendChild(button);
+    return button;
+}
+
 function initializeMusic() {
-    backgroundMusic = document.getElementById('backgroundMusic');
-    const musicButton = document.getElementById('musicButton');
+    backgroundMusic = new Audio('1. MultiTone - 120 bpm - 001 2.mp3');
+    backgroundMusic.loop = true;
+    const musicButton = createMusicButton();
     
     musicButton.addEventListener('click', () => {
         if (musicPlaying) {
