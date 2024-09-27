@@ -39,45 +39,10 @@ const nexuses = [];
 const nexusCount = 7;
 const nodeCount = 400; // Increased from 60 to 400
 
-function createNexus() {
-    const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(nodeCount * 3);
-    const colors = new Float32Array(nodeCount * 3);
-
-    for (let i = 0; i < nodeCount * 3; i += 3) {
-        positions[i] = Math.random() * 2 - 1;
-        positions[i + 1] = Math.random() * 2 - 1;
-        positions[i + 2] = Math.random() * 2 - 1;
-
-        colors[i] = Math.random();
-        colors[i + 1] = Math.random();
-        colors[i + 2] = Math.random();
-    }
-
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-    const material = new THREE.PointsMaterial({ size: 0.03, vertexColors: true }); // Reduced size to accommodate more points
-    const nexus = new THREE.Points(geometry, material);
-    nexus.position.set(Math.random() * 10 - 5, Math.random() * 4 + 1, Math.random() * 10 - 5);
-    nexus.userData.velocity = new THREE.Vector3(
-        (Math.random() - 0.5) * 0.02,
-        (Math.random() - 0.5) * 0.02,
-        (Math.random() - 0.5) * 0.02
-    );
-    scene.add(nexus);
-    return nexus;
-}
-
-for (let i = 0; i < nexusCount; i++) {
-    nexuses.push(createNexus());
-}
-
-// Add this near the top of the file, after other variable declarations
+// Add these variables for music control
 let backgroundMusic;
 let musicPlaying = false;
 
-// Add this function to initialize the music
 function initializeMusic() {
     backgroundMusic = document.getElementById('backgroundMusic');
     const musicButton = document.getElementById('musicButton');
@@ -223,3 +188,6 @@ window.addEventListener('resize', () => {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// Make sure to call init() at the end of the file if it's not already being called
+init();
