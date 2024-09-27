@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>FPS Game</title>
     <link rel="stylesheet" href="fps_styles.css">
 </head>
@@ -10,8 +10,12 @@
     <div id="gameContainer">
         <div id="game"></div>
         <div id="crosshair">+</div>
+        <div id="mobileControls">
+            <div id="joystick"></div>
+        </div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.9.0/nipplejs.min.js"></script>
     <script src="fps_game.js"></script>
 </body>
 </html>

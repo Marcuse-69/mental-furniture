@@ -107,130 +107,102 @@ function initializeMusic() {
     });
 }
 
+let camera, scene, renderer, controls;
+let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+let prevTime = performance.now();
+let velocity = new THREE.Vector3();
+let direction = new THREE.Vector3();
+let joystick;
+
 function init() {
     // Existing initialization code...
     
     initializeMusic();
+    initializeMobileControls();
     
-    // Rest of the initialization code...
+    // Add automatic camera movement
+    setInterval(autoCameraMovement, 50);
 }
 
-// Ensure the DOM is fully loaded before running the init function
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
-}
+function initializeMobileControls() {
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        const joystickContainer = document.getElementById('joystick');
+        joystick = nipplejs.create({
+            zone: joystickContainer,
+            mode: 'static',
+            position: { left: '50%', top: '50%' },
+            color: 'white'
+        });
 
-// Set up controls
-const moveSpeed = 0.1;
-const rotateSpeed = 0.02;
-let moveForward = false;
-let moveBackward = false;
-let moveLeft = false;
-let moveRight = false;
+        joystick.on('move', (evt, data) => {
+            const forward = data.vector.y;
+            const side = data.vector.x;
 
-document.addEventListener('keydown', onKeyDown);
-document.addEventListener('keyup', onKeyUp);
+            moveForward = forward > 0;
+            moveBackward = forward < 0;
+            moveLeft = side < 0;
+            moveRight = side > 0;
+        });
 
-function onKeyDown(event) {
-    switch (event.code) {
-        case 'KeyW': moveForward = true; break;
-        case 'KeyS': moveBackward = true; break;
-        case 'KeyA': moveLeft = true; break;
-        case 'KeyD': moveRight = true; break;
+        joystick.on('end', () => {
+            moveForward = moveBackward = moveLeft = moveRight = false;
+        });
+
+        // Touch-based camera rotation
+        let touchStartX, touchStartY;
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].pageX;
+            touchStartY = e.touches[0].pageY;
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (!touchStartX || !touchStartY) return;
+
+            const touchEndX = e.touches[0].pageX;
+            const touchEndY = e.touches[0].pageY;
+
+            const dx = touchEndX - touchStartX;
+            const dy = touchEndY - touchStartY;
+
+            camera.rotation.y -= dx * 0.002;
+            camera.rotation.x -= dy * 0.002;
+
+            camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+
+            touchStartX = touchEndX;
+            touchStartY = touchEndY;
+        });
     }
 }
 
-function onKeyUp(event) {
-    switch (event.code) {
-        case 'KeyW': moveForward = false; break;
-        case 'KeyS': moveBackward = false; break;
-        case 'KeyA': moveLeft = false; break;
-        case 'KeyD': moveRight = false; break;
-    }
+function autoCameraMovement() {
+    camera.rotation.y += 0.0005; // Slow rotation around Y-axis
+    camera.position.y += Math.sin(Date.now() * 0.001) * 0.01; // Slight up and down movement
 }
 
-// Mouse look controls
-let isMouseLocked = false;
-renderer.domElement.addEventListener('click', () => {
-    if (!isMouseLocked) {
-        renderer.domElement.requestPointerLock();
-    }
-});
-
-document.addEventListener('pointerlockchange', () => {
-    isMouseLocked = document.pointerLockElement === renderer.domElement;
-});
-
-document.addEventListener('mousemove', (event) => {
-    if (isMouseLocked) {
-        camera.rotation.y -= event.movementX * rotateSpeed;
-        camera.rotation.x -= event.movementY * rotateSpeed;
-        camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
-    }
-});
-
-// Animation loop
 function animate() {
     requestAnimationFrame(animate);
 
-    // Update camera position based on WASD input
-    const direction = new THREE.Vector3();
-    const sideDirection = new THREE.Vector3();
-    camera.getWorldDirection(direction);
-    sideDirection.crossVectors(direction, camera.up);
+    const time = performance.now();
+    const delta = (time - prevTime) / 1000;
 
-    if (moveForward) camera.position.addScaledVector(direction, moveSpeed);
-    if (moveBackward) camera.position.addScaledVector(direction, -moveSpeed);
-    if (moveLeft) camera.position.addScaledVector(sideDirection, -moveSpeed);
-    if (moveRight) camera.position.addScaledVector(sideDirection, moveSpeed);
+    velocity.x -= velocity.x * 10.0 * delta;
+    velocity.z -= velocity.z * 10.0 * delta;
 
-    // Update nexus positions and interactions
-    nexuses.forEach((nexus, index) => {
-        // Move nexus
-        nexus.position.add(nexus.userData.velocity);
+    direction.z = Number(moveForward) - Number(moveBackward);
+    direction.x = Number(moveRight) - Number(moveLeft);
+    direction.normalize();
 
-        // Bounce off boundaries
-        if (Math.abs(nexus.position.x) > 10 || Math.abs(nexus.position.y) > 5 || Math.abs(nexus.position.z) > 10) {
-            nexus.userData.velocity.multiplyScalar(-1);
-        }
+    if (moveForward || moveBackward) velocity.z -= direction.z * 400.0 * delta;
+    if (moveLeft || moveRight) velocity.x -= direction.x * 400.0 * delta;
 
-        // Simulate face-like movements
-        const time = Date.now() * 0.001;
-        const positions = nexus.geometry.attributes.position.array;
-        for (let i = 0; i < positions.length; i += 3) {
-            positions[i] += Math.sin(time + i) * 0.002;
-            positions[i + 1] += Math.cos(time + i) * 0.002;
-            positions[i + 2] += Math.sin(time + i + Math.PI) * 0.002;
-        }
-        nexus.geometry.attributes.position.needsUpdate = true;
+    controls.moveRight(-velocity.x * delta);
+    controls.moveForward(-velocity.z * delta);
 
-        // Interact with player
-        const distanceToPlayer = nexus.position.distanceTo(camera.position);
-        if (distanceToPlayer < 2) {
-            const repelForce = camera.position.clone().sub(nexus.position).normalize().multiplyScalar(0.01);
-            nexus.userData.velocity.sub(repelForce);
-        }
-
-        // Interact with other nexuses
-        nexuses.forEach((otherNexus, otherIndex) => {
-            if (index !== otherIndex) {
-                const distance = nexus.position.distanceTo(otherNexus.position);
-                if (distance < 2) {
-                    const attractForce = otherNexus.position.clone().sub(nexus.position).normalize().multiplyScalar(0.001);
-                    nexus.userData.velocity.add(attractForce);
-                }
-            }
-        });
-
-        // Apply some drag to prevent excessive speeds
-        nexus.userData.velocity.multiplyScalar(0.99);
-    });
+    prevTime = time;
 
     renderer.render(scene, camera);
 }
-animate();
 
 // Handle window resizing
 window.addEventListener('resize', () => {
