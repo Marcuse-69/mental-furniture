@@ -64,25 +64,36 @@ function createMusicButton() {
     return button;
 }
 
+function toggleMusic() {
+    const musicButton = document.getElementById('musicButton');
+    if (musicPlaying) {
+        backgroundMusic.pause();
+        musicButton.style.backgroundColor = 'red';
+        musicPlaying = false;
+    } else {
+        backgroundMusic.play().catch(error => {
+            console.error('Error playing music:', error);
+            alert('Unable to play music. Please check your browser settings.');
+        });
+        musicButton.style.backgroundColor = 'green';
+        musicPlaying = true;
+    }
+}
+
 function initializeMusic() {
     backgroundMusic = new Audio('1. MultiTone - 120 bpm - 001 2.mp3');
     backgroundMusic.loop = true;
     const musicButton = createMusicButton();
     
-    musicButton.addEventListener('click', () => {
-        if (musicPlaying) {
-            backgroundMusic.pause();
-            musicButton.textContent = 'Oor zo iteraties een huisje leeg hoe klinkt dat?';
-            musicPlaying = false;
-        } else {
-            backgroundMusic.play().catch(error => {
-                console.error('Error playing music:', error);
-                alert('Unable to play music. Please check your browser settings.');
-            });
-            musicButton.textContent = 'Pause';
-            musicPlaying = true;
+    // Add event listener for Escape key
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            toggleMusic();
         }
     });
+
+    // Keep click functionality as well
+    musicButton.addEventListener('click', toggleMusic);
 }
 
 function init() {
