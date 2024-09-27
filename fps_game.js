@@ -1,46 +1,105 @@
 // Set up the scene, camera, and renderer
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer();
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
+let scene, camera, renderer, controls;
+let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+let prevTime = performance.now();
+let velocity = new THREE.Vector3();
+let direction = new THREE.Vector3();
+let joystick;
 
-// Load the background texture
-const textureLoader = new THREE.TextureLoader();
-const backgroundTexture = textureLoader.load('lacanian_desire_background.jpg', () => {
-    const backgroundMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(400, 60, 40), // Reduced size from 500 to 400
-        new THREE.MeshBasicMaterial({ 
-            map: backgroundTexture, 
-            side: THREE.BackSide, 
-            transparent: true, 
-            opacity: 0.8 
-        })
-    );
-    backgroundMesh.position.set(0, 50, 0); // Moved the sphere up by 50 units
-    scene.add(backgroundMesh);
-}, undefined, (error) => {
-    console.error('An error occurred while loading the background texture:', error);
-});
-
-// Set up camera position
-camera.position.set(0, 1.6, 0);
-
-// Create a simple floor
-const floorGeometry = new THREE.PlaneGeometry(20, 20);
-const floorMaterial = new THREE.MeshBasicMaterial({ color: 0xcccccc, transparent: true, opacity: 0.5 });
-const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-floor.rotation.x = -Math.PI / 2;
-floor.position.y = -0.5;
-scene.add(floor);
+let backgroundMusic;
+let musicPlaying = false;
 
 // Create point cloud nexuses
 const nexuses = [];
 const nexusCount = 7;
 const nodeCount = 400; // Increased from 60 to 400
 
-let backgroundMusic;
-let musicPlaying = false;
+function init() {
+    // Set up the scene, camera, and renderer
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Set up controls
+    controls = new THREE.PointerLockControls(camera, renderer.domElement);
+
+    // Add event listeners for controls
+    document.addEventListener('click', () => {
+        controls.lock();
+    });
+
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keyup', onKeyUp);
+
+    // Create nexuses
+    for (let i = 0; i < nexusCount; i++) {
+        createNexus();
+    }
+
+    // Position camera
+    camera.position.y = 10;
+
+    initializeMusic();
+    initializeMobileControls();
+    
+    // Add automatic camera movement
+    setInterval(autoCameraMovement, 50);
+
+    // Start animation loop
+    animate();
+}
+
+function createNexus() {
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(nodeCount * 3);
+    const colors = new Float32Array(nodeCount * 3);
+
+    for (let i = 0; i < nodeCount; i++) {
+        const x = Math.random() * 400 - 200;
+        const y = Math.random() * 400 - 200;
+        const z = Math.random() * 400 - 200;
+
+        positions[i * 3] = x;
+        positions[i * 3 + 1] = y;
+        positions[i * 3 + 2] = z;
+
+        const color = new THREE.Color();
+        color.setHSL(Math.random(), 1.0, 0.5);
+
+        colors[i * 3] = color.r;
+        colors[i * 3 + 1] = color.g;
+        colors[i * 3 + 2] = color.b;
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    const material = new THREE.PointsMaterial({ size: 0.5, vertexColors: true });
+    const points = new THREE.Points(geometry, material);
+
+    scene.add(points);
+    nexuses.push(points);
+}
+
+function onKeyDown(event) {
+    switch (event.code) {
+        case 'KeyW': moveForward = true; break;
+        case 'KeyA': moveLeft = true; break;
+        case 'KeyS': moveBackward = true; break;
+        case 'KeyD': moveRight = true; break;
+    }
+}
+
+function onKeyUp(event) {
+    switch (event.code) {
+        case 'KeyW': moveForward = false; break;
+        case 'KeyA': moveLeft = false; break;
+        case 'KeyS': moveBackward = false; break;
+        case 'KeyD': moveRight = false; break;
+    }
+}
 
 function createMusicButton() {
     const button = document.createElement('button');
@@ -51,8 +110,8 @@ function createMusicButton() {
     button.style.left = '50%';
     button.style.transform = 'translate(-50%, -50%)';
     button.style.zIndex = '9999';
-    button.style.padding = '10px 20px'; // Reduced padding
-    button.style.fontSize = '14px'; // Reduced font size
+    button.style.padding = '10px 20px';
+    button.style.fontSize = '14px';
     button.style.backgroundColor = 'red';
     button.style.color = 'white';
     button.style.border = 'none';
@@ -85,43 +144,22 @@ function initializeMusic() {
     backgroundMusic.loop = true;
     const musicButton = createMusicButton();
     
-    // Add event listener for Escape key
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             toggleMusic();
         }
     });
 
-    // Add event listener for clicking anywhere on the screen
     document.addEventListener('click', (event) => {
-        // Check if the click is not on the music button
         if (event.target !== musicButton) {
             toggleMusic();
         }
     });
 
-    // Keep click functionality for the button as well
     musicButton.addEventListener('click', (event) => {
-        event.stopPropagation(); // Prevent the document click event from firing
+        event.stopPropagation();
         toggleMusic();
     });
-}
-
-let camera, scene, renderer, controls;
-let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-let prevTime = performance.now();
-let velocity = new THREE.Vector3();
-let direction = new THREE.Vector3();
-let joystick;
-
-function init() {
-    // Existing initialization code...
-    
-    initializeMusic();
-    initializeMobileControls();
-    
-    // Add automatic camera movement
-    setInterval(autoCameraMovement, 50);
 }
 
 function initializeMobileControls() {
@@ -148,7 +186,6 @@ function initializeMobileControls() {
             moveForward = moveBackward = moveLeft = moveRight = false;
         });
 
-        // Touch-based camera rotation
         let touchStartX, touchStartY;
         document.addEventListener('touchstart', (e) => {
             touchStartX = e.touches[0].pageX;
@@ -176,8 +213,8 @@ function initializeMobileControls() {
 }
 
 function autoCameraMovement() {
-    camera.rotation.y += 0.0005; // Slow rotation around Y-axis
-    camera.position.y += Math.sin(Date.now() * 0.001) * 0.01; // Slight up and down movement
+    camera.rotation.y += 0.0005;
+    camera.position.y += Math.sin(Date.now() * 0.001) * 0.01;
 }
 
 function animate() {
@@ -204,12 +241,14 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// Handle window resizing
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Make sure to call init() at the end of the file if it's not already being called
-init();
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
