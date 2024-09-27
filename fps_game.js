@@ -37,36 +37,71 @@ scene.add(floor);
 // Create point cloud nexuses
 const nexuses = [];
 const nexusCount = 7;
-const nodeCount = 400; // Increased from 60 to 400
+const nodeCount = 2000; // Increased to 2000 as requested
+
+// LOD settings
+const lodLevels = [
+    { distance: 10, visibleNodes: 2000 },
+    { distance: 20, visibleNodes: 1000 },
+    { distance: 30, visibleNodes: 500 },
+    { distance: 40, visibleNodes: 250 },
+    { distance: 50, visibleNodes: 100 }
+];
 
 function createNexus() {
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(nodeCount * 3);
     const colors = new Float32Array(nodeCount * 3);
 
-    for (let i = 0; i < nodeCount * 3; i += 3) {
-        positions[i] = Math.random() * 2 - 1;
-        positions[i + 1] = Math.random() * 2 - 1;
-        positions[i + 2] = Math.random() * 2 - 1;
+    // Load and downscale the image texture
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load('final_panic_scream_eye.png', (texture) => {
+        // Downscale the texture
+        const scaleFactor = 0.5; // Adjust this value to control the downscaling
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = texture.image.width * scaleFactor;
+        canvas.height = texture.image.height * scaleFactor;
+        ctx.drawImage(texture.image, 0, 0, canvas.width, canvas.height);
+        
+        const downscaledTexture = new THREE.Texture(canvas);
+        downscaledTexture.needsUpdate = true;
 
-        colors[i] = Math.random();
-        colors[i + 1] = Math.random();
-        colors[i + 2] = Math.random();
-    }
+        // Use the downscaled texture for the material
+        const material = new THREE.PointsMaterial({
+            size: 0.1,
+            map: downscaledTexture,
+            transparent: true,
+            alphaTest: 0.5,
+            vertexColors: true
+        });
 
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        for (let i = 0; i < nodeCount; i++) {
+            positions[i] = Math.random() * 2 - 1;
+            positions[i + 1] = Math.random() * 2 - 1;
+            positions[i + 2] = Math.random() * 2 - 1;
 
-    const material = new THREE.PointsMaterial({ size: 0.03, vertexColors: true }); // Reduced size to accommodate more points
-    const nexus = new THREE.Points(geometry, material);
-    nexus.position.set(Math.random() * 10 - 5, Math.random() * 4 + 1, Math.random() * 10 - 5);
-    nexus.userData.velocity = new THREE.Vector3(
-        (Math.random() - 0.5) * 0.02,
-        (Math.random() - 0.5) * 0.02,
-        (Math.random() - 0.5) * 0.02
-    );
-    scene.add(nexus);
-    return nexus;
+            colors[i] = Math.random();
+            colors[i + 1] = Math.random();
+            colors[i + 2] = Math.random();
+        }
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const nexus = new THREE.Points(geometry, material);
+        nexus.position.set(Math.random() * 10 - 5, Math.random() * 4 + 1, Math.random() * 10 - 5);
+        nexus.userData.velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 0.02,
+            (Math.random() - 0.5) * 0.02,
+            (Math.random() - 0.5) * 0.02
+        );
+        scene.add(nexus);
+        nexuses.push(nexus);
+
+        // Add a property to store the original node count
+        nexus.userData.originalNodeCount = nodeCount;
+    });
 }
 
 for (let i = 0; i < nexusCount; i++) {
@@ -179,9 +214,48 @@ function animate() {
         nexus.userData.velocity.multiplyScalar(0.99);
     });
 
+    // Update LOD
+    updateLOD();
+
     renderer.render(scene, camera);
 }
-animate();
+
+function updateLOD() {
+    nexuses.forEach(nexus => {
+        const distance = camera.position.distanceTo(nexus.position);
+        let visibleNodes = nodeCount;
+
+        for (const level of lodLevels) {
+            if (distance > level.distance) {
+                visibleNodes = level.visibleNodes;
+            } else {
+                break;
+            }
+        }
+
+        const geometry = nexus.geometry;
+        const originalPositions = geometry.attributes.position.array;
+        const originalColors = geometry.attributes.color.array;
+
+        const newPositions = new Float32Array(visibleNodes * 3);
+        const newColors = new Float32Array(visibleNodes * 3);
+
+        for (let i = 0; i < visibleNodes; i++) {
+            newPositions[i * 3] = originalPositions[i * 3];
+            newPositions[i * 3 + 1] = originalPositions[i * 3 + 1];
+            newPositions[i * 3 + 2] = originalPositions[i * 3 + 2];
+
+            newColors[i * 3] = originalColors[i * 3];
+            newColors[i * 3 + 1] = originalColors[i * 3 + 1];
+            newColors[i * 3 + 2] = originalColors[i * 3 + 2];
+        }
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(newPositions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(newColors, 3));
+        geometry.attributes.position.needsUpdate = true;
+        geometry.attributes.color.needsUpdate = true;
+    });
+}
 
 // Handle window resizing
 window.addEventListener('resize', () => {
