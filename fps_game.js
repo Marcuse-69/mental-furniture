@@ -73,6 +73,40 @@ for (let i = 0; i < nexusCount; i++) {
     nexuses.push(createNexus());
 }
 
+// Add this near the top of the file, after other variable declarations
+let backgroundMusic;
+let musicPlaying = false;
+
+// Add this function to initialize the music
+function initializeMusic() {
+    backgroundMusic = document.getElementById('backgroundMusic');
+    const musicButton = document.getElementById('musicButton');
+    
+    musicButton.addEventListener('click', () => {
+        if (musicPlaying) {
+            backgroundMusic.pause();
+            musicButton.textContent = 'Play Music';
+            musicPlaying = false;
+        } else {
+            backgroundMusic.play().catch(error => {
+                console.error('Error playing music:', error);
+                alert('Unable to play music. Please check your browser settings.');
+            });
+            musicButton.textContent = 'Pause Music';
+            musicPlaying = true;
+        }
+    });
+}
+
+// Modify the init function to include music initialization
+function init() {
+    // ... existing initialization code ...
+    
+    initializeMusic();
+    
+    // ... rest of the initialization code ...
+}
+
 // Set up controls
 const moveSpeed = 0.1;
 const rotateSpeed = 0.02;
