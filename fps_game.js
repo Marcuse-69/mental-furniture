@@ -45,11 +45,21 @@ let musicPlaying = false;
 function createMusicButton() {
     const button = document.createElement('button');
     button.id = 'musicButton';
-    button.textContent = 'Play Music';
+    button.textContent = 'Oor zo iteraties een huisje leeg hoe klinkt dat?';
     button.style.position = 'fixed';
-    button.style.top = '20px';
-    button.style.left = '20px';
+    button.style.top = '50%';
+    button.style.left = '50%';
+    button.style.transform = 'translate(-50%, -50%)';
     button.style.zIndex = '9999';
+    button.style.padding = '15px 30px';
+    button.style.fontSize = '18px';
+    button.style.backgroundColor = 'red';
+    button.style.color = 'white';
+    button.style.border = 'none';
+    button.style.borderRadius = '5px';
+    button.style.cursor = 'pointer';
+    button.style.fontWeight = 'bold';
+    button.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
     document.body.appendChild(button);
     return button;
 }
@@ -62,14 +72,14 @@ function initializeMusic() {
     musicButton.addEventListener('click', () => {
         if (musicPlaying) {
             backgroundMusic.pause();
-            musicButton.textContent = 'Play Music';
+            musicButton.textContent = 'Oor zo iteraties een huisje leeg hoe klinkt dat?';
             musicPlaying = false;
         } else {
             backgroundMusic.play().catch(error => {
                 console.error('Error playing music:', error);
                 alert('Unable to play music. Please check your browser settings.');
             });
-            musicButton.textContent = 'Pause Music';
+            musicButton.textContent = 'Pause';
             musicPlaying = true;
         }
     });
