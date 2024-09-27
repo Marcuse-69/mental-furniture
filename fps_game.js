@@ -19,10 +19,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Your Three.js code here
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer();
 
-    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
 
     // Example: Add a cube to the scene
@@ -44,8 +44,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Handle window resizing
     window.addEventListener('resize', function() {
-        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
-        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setSize(window.innerWidth, window.innerHeight);
     });
 });
