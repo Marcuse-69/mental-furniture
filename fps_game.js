@@ -15,43 +15,65 @@ const nexusCount = 7;
 const nodeCount = 400;
 
 function init() {
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000000);
-    
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    
-    const canvas = document.getElementById('game');
-    renderer = new THREE.WebGLRenderer({
-        canvas: canvas,
-        antialias: true
-    });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    try {
+        console.log('Initializing game...');
+        
+        scene = new THREE.Scene();
+        console.log('Scene created');
+        
+        scene.background = new THREE.Color(0x000000);
+        console.log('Background set');
+        
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        console.log('Camera created');
+        
+        const canvas = document.getElementById('game');
+        console.log('Canvas found:', canvas);
+        
+        renderer = new THREE.WebGLRenderer({
+            canvas: canvas,
+            antialias: true
+        });
+        console.log('Renderer created');
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        console.log('Renderer size set');
 
-    // Set up controls
-    controls = new THREE.PointerLockControls(camera, renderer.domElement);
-    scene.add(controls.getObject());
+        // Set up controls
+        controls = new THREE.PointerLockControls(camera, renderer.domElement);
+        console.log('Controls created');
+        
+        scene.add(controls.getObject());
+        console.log('Controls added to scene');
 
-    document.addEventListener('click', () => {
-        controls.lock();
-    });
+        document.addEventListener('click', () => {
+            controls.lock();
+        });
 
-    document.addEventListener('keydown', onKeyDown);
-    document.addEventListener('keyup', onKeyUp);
+        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('keyup', onKeyUp);
 
-    // Create nexuses
-    for (let i = 0; i < nexusCount; i++) {
-        createNexus();
+        // Create nexuses
+        for (let i = 0; i < nexusCount; i++) {
+            createNexus();
+        }
+        console.log('Nexuses created');
+
+        camera.position.y = 10;
+        console.log('Camera positioned');
+
+        initializeMusic();
+        initializeMobileControls();
+        
+        setInterval(autoCameraMovement, 50);
+        console.log('Auto camera movement started');
+
+        animate();
+        console.log('Animation loop started');
+    } catch (error) {
+        console.error('Error during initialization:', error);
     }
-
-    camera.position.y = 10;
-
-    initializeMusic();
-    initializeMobileControls();
-    
-    setInterval(autoCameraMovement, 50);
-
-    animate();
 }
 
 function createNexus() {

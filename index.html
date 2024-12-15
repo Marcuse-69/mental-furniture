@@ -61,9 +61,23 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://unpkg.com/three@r128/examples/js/controls/PointerLockControls.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.9.0/nipplejs.min.js"></script>
-    <script src="fps_game.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM fully loaded');
+            // Load the game script after everything else is ready
+            const gameScript = document.createElement('script');
+            gameScript.src = 'fps_game.js';
+            gameScript.onload = function() {
+                console.log('Game script loaded');
+            };
+            gameScript.onerror = function(error) {
+                console.error('Error loading game script:', error);
+            };
+            document.body.appendChild(gameScript);
+        });
+    </script>
 </body>
 </html>
