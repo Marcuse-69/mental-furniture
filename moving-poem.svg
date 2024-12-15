@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 148 210" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Much clearer base text filter -->
+    <filter id="ghost-scatter">
+      <feTurbulence type="fractalNoise" baseFrequency="0.2" numOctaves="2">
+        <animate attributeName="baseFrequency"
+                values="0.2;0.25;0.2;0.15;0.2"
+                dur="30s"
+                repeatCount="indefinite"/>
+      </feTurbulence>
+      <feDisplacementMap in="SourceGraphic" scale="10"/>
+    </filter>
+
+    <!-- Porcelain cracking effect -->
+    <filter id="porcelain-crack">
+      <feTurbulence type="turbulence" baseFrequency="0.8" numOctaves="5">
+        <animate attributeName="baseFrequency"
+                values="0.8;1.2;0.8;0.4;0.8"
+                dur="0.05s"
+                repeatCount="indefinite"/>
+      </feTurbulence>
+      <feDisplacementMap in="SourceGraphic" scale="30"/>
+    </filter>
+
+    <!-- Ethereal fade -->
+    <filter id="ethereal">
+      <feGaussianBlur stdDeviation="0.5">
+        <animate attributeName="stdDeviation"
+                values="0.5;2;0.5;1;0.5"
+                dur="90s"
+                repeatCount="indefinite"/>
+      </feGaussianBlur>
+    </filter>
+
+    <!-- Porcelain eye gradients -->
+    <radialGradient id="eye-white" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="90%" stop-color="#f0f0f0"/>
+      <stop offset="100%" stop-color="#e0e0e0"/>
+    </radialGradient>
+    
+    <radialGradient id="iris-dark" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#1a1a1a"/>
+      <stop offset="70%" stop-color="#000000"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Base text at 70% more readability -->
+  <g>
+    <text font-family="monospace" font-size="11" filter="url(#ghost-scatter)">
+      <tspan x="10" y="30">De Amerikaan is kapot</tspan>
+      <tspan x="10" y="50">Een vlinder voor niemand</tspan>
+      <tspan x="10" y="70">Schimmelstigmata</tspan>
+      <tspan x="10" y="90">echt waar</tspan>
+      <tspan x="10" y="110">Op mijn hand</tspan>
+      <tspan x="10" y="130">vreetleven</tspan>
+      <tspan x="10" y="150">Ik vrees dat</tspan>
+      <tspan x="10" y="170">en ik tril ervan</tspan>
+      <tspan x="10" y="190">De Amerikaan is kapot</tspan>
+    </text>
+  </g>
+
+  <!-- Porcelain eye construct -->
+  <g>
+    <!-- Eye base -->
+    <ellipse rx="20" ry="25" fill="url(#eye-white)" filter="url(#ethereal)">
+      <animate attributeName="cx"
+              values="74;30;120;74;90;74"
+              dur="120s"
+              repeatCount="indefinite"/>
+      <animate attributeName="cy"
+              values="105;40;180;105;150;105"
+              dur="180s"
+              repeatCount="indefinite"/>
+    </ellipse>
+
+    <!-- Iris with crack effect -->
+    <circle r="12" fill="url(#iris-dark)" filter="url(#porcelain-crack)">
+      <animate attributeName="cx"
+              values="74;30;120;74;90;74"
+              dur="120s"
+              repeatCount="indefinite"/>
+      <animate attributeName="cy"
+              values="105;40;180;105;150;105"
+              dur="180s"
+              repeatCount="indefinite"/>
+      <animate attributeName="r"
+              values="12;14;12;10;12"
+              dur="45s"
+              repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- Text that morphs with eye -->
+  <g filter="url(#ethereal)">
+    <text font-size="9" fill="black" opacity="0.7">
+      <textPath href="#eye-path">
+        kapot echt waar kapot
+        <animate attributeName="opacity"
+                values="0.7;0;0.7;0.3;0.7"
+                dur="60s"
+                repeatCount="indefinite"/>
+      </textPath>
+    </text>
+  </g>
+
+  <!-- Porcelain crack patterns -->
+  <path d="M 0 0" stroke="black" stroke-width="0.5" opacity="0.2" filter="url(#porcelain-crack)">
+    <animate attributeName="d"
+            values="M 0 0 L 148 210; M 148 0 L 0 210; M 0 0 L 148 210"
+            dur="0.1s"
+            repeatCount="indefinite"/>
+  </path>
+
+  <!-- Very slow morphing path for eye movement -->
+  <path id="eye-path" 
+        d="M 10 10 Q 74 105, 138 200" 
+        fill="none"
+        stroke="none">
+    <animate attributeName="d"
+            values="M 10 10 Q 74 105, 138 200;
+                    M 138 10 Q 74 105, 10 200;
+                    M 10 10 Q 74 105, 138 200"
+            dur="240s"
+            repeatCount="indefinite"/>
+  </path>
+</svg> 
