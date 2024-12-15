@@ -1,6 +1,3 @@
-import * as THREE from 'three';
-import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
-
 // Set up the scene, camera, and renderer
 let camera, scene, renderer, controls;
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
@@ -15,7 +12,7 @@ let musicPlaying = false;
 // Create point cloud nexuses
 const nexuses = [];
 const nexusCount = 7;
-const nodeCount = 400; // Increased from 60 to 400
+const nodeCount = 400;
 
 function init() {
     scene = new THREE.Scene();
