@@ -14,6 +14,10 @@ const nexuses = [];
 const nexusCount = 7;
 const nodeCount = 400;
 
+// Add enemy-related variables
+let enemies = [];
+const ENEMY_COUNT = 5;
+
 function init() {
     try {
         console.log('Initializing game...');
@@ -69,6 +73,20 @@ function init() {
         setInterval(autoCameraMovement, 50);
         console.log('Auto camera movement started');
 
+        // Add ambient light
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+        
+        // Add directional light
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(5, 5, 5);
+        scene.add(dirLight);
+        
+        // Create enemies
+        for(let i = 0; i < ENEMY_COUNT; i++) {
+            createEnemy();
+        }
+        
         animate();
         console.log('Animation loop started');
     } catch (error) {
@@ -242,6 +260,93 @@ function autoCameraMovement() {
     camera.position.y += Math.sin(Date.now() * 0.001) * 0.01;
 }
 
+function createEnemy() {
+    // Create totem group
+    const totemGroup = new THREE.Group();
+    
+    // Create totem body (stack of boxes)
+    const bodyGeometry = new THREE.BoxGeometry(2, 6, 2);
+    const bodyMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0xA0522D,
+        roughness: 0.8,
+        metalness: 0.2
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    
+    // Add random carvings/patterns using multiple small boxes
+    for(let i = 0; i < 8; i++) {
+        const carving = new THREE.Mesh(
+            new THREE.BoxGeometry(0.4, 0.4, 0.4),
+            new THREE.MeshPhongMaterial({ color: 0x8B4513 })
+        );
+        carving.position.set(
+            (Math.random() - 0.5) * 1.5,
+            (Math.random() - 0.5) * 5,
+            1.1
+        );
+        body.add(carving);
+    }
+
+    // Create "Made in China" text
+    const loader = new THREE.TextureLoader();
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.width = 256;
+    canvas.height = 64;
+    context.fillStyle = 'white';
+    context.fillRect(0, 0, 256, 64);
+    context.font = 'bold 32px Arial';
+    context.fillStyle = 'red';
+    context.textAlign = 'center';
+    context.fillText('MADE IN CHINA', 128, 40);
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    const textGeometry = new THREE.PlaneGeometry(2, 0.5);
+    const textMaterial = new THREE.MeshBasicMaterial({ 
+        map: texture,
+        transparent: true,
+        opacity: 0.9
+    });
+    const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+    textMesh.position.set(0, 2, 1.1);
+    
+    // Add everything to the group
+    totemGroup.add(body);
+    totemGroup.add(textMesh);
+    
+    // Position the totem randomly in the world
+    totemGroup.position.set(
+        (Math.random() - 0.5) * 100,
+        0,
+        (Math.random() - 0.5) * 100
+    );
+    
+    // Add animation data
+    totemGroup.userData = {
+        rotationSpeed: (Math.random() - 0.5) * 0.02,
+        floatOffset: Math.random() * Math.PI * 2,
+        originalY: totemGroup.position.y
+    };
+    
+    scene.add(totemGroup);
+    enemies.push(totemGroup);
+}
+
+function updateEnemies() {
+    const time = performance.now() * 0.001;
+    enemies.forEach(enemy => {
+        // Rotate around Y axis
+        enemy.rotation.y += enemy.userData.rotationSpeed;
+        
+        // Float up and down
+        enemy.position.y = enemy.userData.originalY + 
+            Math.sin(time + enemy.userData.floatOffset) * 0.5;
+            
+        // Always face the camera
+        enemy.children[1].lookAt(camera.position);
+    });
+}
+
 function animate() {
     requestAnimationFrame(animate);
 
@@ -263,6 +368,8 @@ function animate() {
         controls.moveForward(-velocity.z * delta);
 
         prevTime = time;
+        
+        updateEnemies();
     }
 
     renderer.render(scene, camera);
