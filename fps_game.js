@@ -40,7 +40,7 @@ const Evolution = {
     
     // Cultural phrases that evolve over time
     culturalPhrases: [
-        ["MADE IN CHINA", "中国制造", "中國製造", "MADE WITH LOVE", "MADE WITH FEAR"],
+        ["MADE IN CHINA", "中国制造", "中國製", "MADE WITH LOVE", "MADE WITH FEAR"],
         ["EXPORT QUALITY", "IMPORT DREAMS", "QUALITY CONTROL PASSED", "QUALITY CONTROL FAILED"],
         ["HANDLE WITH CARE", "HANDLE WITH PRAYER", "FRAGILE LIKE CAPITALISM"],
         ["MASS PRODUCED", "MASS CONSUMED", "MASS DESTROYED", "MASS REBORN"],
@@ -364,18 +364,67 @@ const Evolution = {
     }
 };
 
-// Then define Monitor system
+// Monitor system for performance and error tracking
 const Monitor = {
-    lastCheck: Date.now(),
-    checkInterval: 1000,
+    stats: null,
     errors: [],
-    stats: {
+    metrics: {
         fps: 0,
         activeEnemies: 0,
         evolutionGeneration: 0,
-        lastSpecialEvent: null
+        lastError: null,
+        memoryUsage: 0
     },
-    // Rest of Monitor system...
+    
+    initialize() {
+        this.stats = new Stats();
+        this.stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
+        document.body.appendChild(this.stats.dom);
+        
+        // Start monitoring loop
+        setInterval(() => this.update(), 1000);
+    },
+    
+    update() {
+        this.metrics.fps = Math.round(this.stats.getFPS());
+        this.metrics.activeEnemies = enemies.length;
+        this.metrics.evolutionGeneration = Evolution.generation;
+        this.metrics.memoryUsage = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : 0;
+        
+        // Log if performance is poor
+        if (this.metrics.fps < 30) {
+            console.warn('Low FPS detected:', this.metrics.fps);
+            this.optimizePerformance();
+        }
+    },
+    
+    logError(error) {
+        this.errors.push({
+            timestamp: Date.now(),
+            error: error
+        });
+        this.metrics.lastError = error;
+        console.error('Game error:', error);
+    },
+    
+    optimizePerformance() {
+        // Reduce particle count if FPS is low
+        if (nexuses.length > 3) {
+            const removed = nexuses.pop();
+            scene.remove(removed);
+        }
+        
+        // Reduce enemy count if needed
+        if (enemies.length > 5 && this.metrics.fps < 20) {
+            const removed = enemies.pop();
+            scene.remove(removed);
+        }
+        
+        // Lower resolution if needed
+        if (this.metrics.fps < 15) {
+            renderer.setPixelRatio(Math.max(0.5, renderer.getPixelRatio() - 0.1));
+        }
+    }
 };
 
 // Initialize systems in correct order
@@ -386,90 +435,139 @@ function initializeSystems() {
     initializeEvolutionSystems();
 }
 
-// Update init function to call initialization in correct order
-function init() {
-    try {
-        console.log('Initializing game...');
-        
-        scene = new THREE.Scene();
-        console.log('Scene created');
-        
-        scene.background = new THREE.Color(0x000000);
-        console.log('Background set');
-        
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        console.log('Camera created');
-        
-        const canvas = document.getElementById('game');
-        console.log('Canvas found:', canvas);
-        
-        renderer = new THREE.WebGLRenderer({
-            canvas: canvas,
-            antialias: true
+// MediaManager to handle all media assets
+const MediaManager = {
+    assets: {
+        background: null,
+        music: null,
+        textures: new Map()
+    },
+    
+    loadBackground() {
+        return new Promise((resolve, reject) => {
+            const loader = new THREE.TextureLoader();
+            loader.load(
+                'chinese-development.jpg',
+                (texture) => {
+                    this.assets.background = texture;
+                    resolve(texture);
+                },
+                undefined,
+                (error) => {
+                    console.error('Error loading background:', error);
+                    reject(error);
+                }
+            );
         });
-        console.log('Renderer created');
-        
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        console.log('Renderer size set');
-
-        // Create the moving background
-        createBackground();
-
-        // Set up controls
-        controls = new THREE.PointerLockControls(camera, renderer.domElement);
-        console.log('Controls created');
-        
-        scene.add(controls.getObject());
-        console.log('Controls added to scene');
-
-        document.addEventListener('click', () => {
-            controls.lock();
+    },
+    
+    loadMusic() {
+        return new Promise((resolve) => {
+            this.assets.music = new Audio('1. MultiTone - 120 bpm - 001 2.mp3');
+            this.assets.music.loop = true;
+            this.assets.music.addEventListener('canplaythrough', () => resolve());
+            this.assets.music.load();
         });
-
-        document.addEventListener('keydown', onKeyDown);
-        document.addEventListener('keyup', onKeyUp);
-
-        // Create nexuses
-        for (let i = 0; i < nexusCount; i++) {
-            createNexus();
+    },
+    
+    async initialize() {
+        try {
+            await Promise.all([
+                this.loadBackground(),
+                this.loadMusic()
+            ]);
+            console.log('All media assets loaded successfully');
+            return true;
+        } catch (error) {
+            console.error('Failed to load media assets:', error);
+            return false;
         }
-        console.log('Nexuses created');
+    },
+    
+    getBackground() {
+        return this.assets.background;
+    },
+    
+    getMusic() {
+        return this.assets.music;
+    }
+};
 
-        camera.position.y = 10;
-        console.log('Camera positioned');
-
-        initializeMusic();
-        initializeMobileControls();
+// Update initialization function
+async function init() {
+    try {
+        // Initialize Monitor first
+        Monitor.initialize();
         
-        setInterval(autoCameraMovement, 50);
-        console.log('Auto camera movement started');
-
+        // Initialize media
+        await MediaManager.initialize();
+        
+        // Set up scene
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        
         // Add ambient light
-        const ambientLight = new THREE.AmbientLight(0x404040);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
         
         // Add directional light
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-        dirLight.position.set(5, 5, 5);
-        scene.add(dirLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        directionalLight.position.set(1, 1, 1);
+        scene.add(directionalLight);
         
-        // Create enemies
-        for(let i = 0; i < ENEMY_COUNT; i++) {
+        renderer = new THREE.WebGLRenderer({
+            canvas: document.querySelector('#game'),
+            antialias: true
+        });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x000000, 1);
+        
+        // Initialize controls
+        controls = new THREE.PointerLockControls(camera, document.body);
+        
+        // Add Stats.js
+        const stats = new Stats();
+        document.body.appendChild(stats.dom);
+        
+        // Set up background
+        const background = MediaManager.getBackground();
+        if (background) {
+            const bgGeometry = new THREE.PlaneGeometry(200, 100);
+            const bgMaterial = new THREE.MeshBasicMaterial({ 
+                map: background,
+                side: THREE.DoubleSide
+            });
+            backgroundPlane = new THREE.Mesh(bgGeometry, bgMaterial);
+            backgroundPlane.position.z = -50;
+            scene.add(backgroundPlane);
+            
+            // Make background always face camera
+            backgroundPlane.lookAt(camera.position);
+        }
+        
+        // Set up initial enemies
+        for (let i = 0; i < ENEMY_COUNT; i++) {
             createEnemy();
         }
         
+        // Initialize music
+        backgroundMusic = MediaManager.getMusic();
+        initializeMusic();
+        
+        // Initialize mobile controls if needed
+        initializeMobileControls();
+        
+        // Set up event listeners
+        document.addEventListener('click', onDocumentClick);
+        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('keyup', onKeyUp);
+        
+        // Start animation loop
         animate();
-        console.log('Animation loop started');
-
-        // Initialize background after scene setup
-        BackgroundSystem.init().catch(error => {
-            console.error('Background initialization failed:', error);
-        });
-
-        initializeSystems();
     } catch (error) {
-        console.error('Error during initialization:', error);
+        Monitor.logError(error);
+        console.error('Failed to initialize game:', error);
     }
 }
 
@@ -562,8 +660,7 @@ function toggleMusic() {
 }
 
 function initializeMusic() {
-    backgroundMusic = new Audio('1. MultiTone - 120 bpm - 001 2.mp3');
-    backgroundMusic.loop = true;
+    backgroundMusic = MediaManager.getMusic();
     const musicButton = createMusicButton();
     
     document.addEventListener('keydown', (event) => {
@@ -571,13 +668,13 @@ function initializeMusic() {
             toggleMusic();
         }
     });
-
+    
     document.addEventListener('click', (event) => {
         if (event.target !== musicButton) {
             toggleMusic();
         }
     });
-
+    
     musicButton.addEventListener('click', (event) => {
         event.stopPropagation();
         toggleMusic();
@@ -801,12 +898,12 @@ function updateEnemies() {
     });
 }
 
+// Update animation loop with Monitor
 function animate() {
-    requestAnimationFrame(animate);
+    Monitor.stats.begin();
     
-    const time = performance.now() * 0.001;
-    
-    if (controls.isLocked) {
+    try {
+        const time = performance.now();
         const delta = (time - prevTime) / 1000;
 
         velocity.x -= velocity.x * 10.0 * delta;
@@ -822,13 +919,36 @@ function animate() {
         controls.moveRight(-velocity.x * delta);
         controls.moveForward(-velocity.z * delta);
 
+        // Update background to face camera
+        if (backgroundPlane) {
+            backgroundPlane.lookAt(camera.position);
+            // Keep background at fixed distance from camera
+            const cameraDirection = new THREE.Vector3(0, 0, -1);
+            cameraDirection.applyQuaternion(camera.quaternion);
+            backgroundPlane.position.copy(camera.position).add(cameraDirection.multiplyScalar(50));
+        }
+
+        // Update enemies with delta time
+        enemies.forEach(enemy => {
+            if (enemy.userData.behaviorPattern) {
+                updateEnemyBehavior(enemy, delta);
+            }
+        });
+
+        // Update evolution system
+        if (time - Evolution.lastEvolve > 30000) { // Every 30 seconds
+            Evolution.evolve();
+        }
+
+        renderer.render(scene, camera);
         prevTime = time;
         
-        updateEnemies();
-        BackgroundSystem.update(time);
+        Monitor.stats.end();
+        requestAnimationFrame(animate);
+    } catch (error) {
+        Monitor.logError(error);
+        requestAnimationFrame(animate); // Continue animation even if there's an error
     }
-    
-    renderer.render(scene, camera);
 }
 
 window.addEventListener('resize', () => {
