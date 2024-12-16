@@ -19,6 +19,63 @@ const nodeCount = 400;
 let enemies = [];
 const ENEMY_COUNT = 5;
 
+// Add evolutionary system
+const Evolution = {
+    generation: 0,
+    mutationRate: 0.1,
+    population: [],
+    
+    createMutatedTotem: function() {
+        const baseTotem = enemies[Math.floor(Math.random() * enemies.length)];
+        const mutation = {
+            height: baseTotem.scale.y * (1 + (Math.random() - 0.5) * this.mutationRate),
+            color: new THREE.Color(
+                Math.random(),
+                Math.random(),
+                Math.random()
+            ),
+            complexity: Math.floor(Math.random() * 20) + 5,  // Number of decorative elements
+            textContent: this.generateText(),
+            rotationSpeed: (Math.random() - 0.5) * 0.04
+        };
+        return mutation;
+    },
+    
+    generateText: function() {
+        const phrases = [
+            "MADE IN CHINA",
+            "EXPORT QUALITY",
+            "HANDLE WITH CARE",
+            "FRAGILE DREAMS",
+            "MASS PRODUCED",
+            "AUTHENTIC COPY",
+            "GENUINE FAKE"
+        ];
+        return phrases[Math.floor(Math.random() * phrases.length)];
+    },
+    
+    evolve: function() {
+        this.generation++;
+        Monitor.log(`Starting evolution generation ${this.generation}`);
+        
+        // Create new enemy with mutations
+        const mutation = this.createMutatedTotem();
+        const newEnemy = createEnemy(mutation);
+        
+        // Remove oldest enemy if we're at capacity
+        if (enemies.length > ENEMY_COUNT) {
+            const oldest = enemies.shift();
+            scene.remove(oldest);
+        }
+        
+        // Increase mutation rate occasionally
+        if (this.generation % 10 === 0) {
+            this.mutationRate *= 1.1;
+            Monitor.log(`Mutation rate increased to ${this.mutationRate}`);
+        }
+    }
+};
+
 function createBackground() {
     console.log('Creating moving background...');
     
@@ -363,84 +420,96 @@ function autoCameraMovement() {
     camera.position.y += Math.sin(Date.now() * 0.001) * 0.01;
 }
 
-function createEnemy() {
+// Modify createEnemy to accept mutations
+function createEnemy(mutations = null) {
     console.log('Creating enemy totem...');
     
-    // Create totem group
     const totemGroup = new THREE.Group();
     
-    // Create totem body (stack of boxes) - MUCH LARGER NOW
-    const bodyGeometry = new THREE.BoxGeometry(8, 24, 8);  // 4x larger
+    // Apply mutations if provided
+    const height = mutations ? mutations.height : 24;
+    const color = mutations ? mutations.color : new THREE.Color(0xA0522D);
+    const complexity = mutations ? mutations.complexity : 12;
+    const text = mutations ? mutations.textContent : 'MADE IN CHINA';
+    
+    // Create base geometry with mutations
+    const bodyGeometry = new THREE.BoxGeometry(8, height, 8);
     const bodyMaterial = new THREE.MeshPhongMaterial({ 
-        color: 0xA0522D,
+        color: color,
         roughness: 0.8,
         metalness: 0.2
     });
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
     
-    // Add random carvings/patterns using multiple small boxes
-    for(let i = 0; i < 12; i++) {  // More carvings
+    // Add decorative elements based on complexity
+    for(let i = 0; i < complexity; i++) {
+        const size = 1.6 * (1 + Math.sin(i / complexity * Math.PI));
         const carving = new THREE.Mesh(
-            new THREE.BoxGeometry(1.6, 1.6, 1.6),  // 4x larger
-            new THREE.MeshPhongMaterial({ color: 0x8B4513 })
+            new THREE.BoxGeometry(size, size, size),
+            new THREE.MeshPhongMaterial({ 
+                color: color.clone().offsetHSL(Math.random() * 0.1, 0, 0)
+            })
         );
         carving.position.set(
             (Math.random() - 0.5) * 6,
-            (Math.random() - 0.5) * 20,
+            (Math.random() - 0.5) * height,
             4.4
+        );
+        carving.rotation.set(
+            Math.random() * Math.PI,
+            Math.random() * Math.PI,
+            Math.random() * Math.PI
         );
         body.add(carving);
     }
-
-    // Create "Made in China" text - LARGER
-    const loader = new THREE.TextureLoader();
+    
+    // Create text with mutations
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
-    canvas.width = 512;  // Larger canvas
+    canvas.width = 512;
     canvas.height = 128;
     context.fillStyle = 'white';
     context.fillRect(0, 0, 512, 128);
-    context.font = 'bold 64px Arial';  // Larger font
+    context.font = 'bold 64px Arial';
     context.fillStyle = 'red';
     context.textAlign = 'center';
-    context.fillText('MADE IN CHINA', 256, 80);
+    context.fillText(text, 256, 80);
     
     const texture = new THREE.CanvasTexture(canvas);
-    const textGeometry = new THREE.PlaneGeometry(8, 2);  // 4x larger
+    const textGeometry = new THREE.PlaneGeometry(8, 2);
     const textMaterial = new THREE.MeshBasicMaterial({ 
         map: texture,
         transparent: true,
         opacity: 0.9,
-        side: THREE.DoubleSide  // Visible from both sides
+        side: THREE.DoubleSide
     });
     const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-    textMesh.position.set(0, 8, 4.4);  // Adjusted position
+    textMesh.position.set(0, height/3, 4.4);
     
-    // Add everything to the group
     totemGroup.add(body);
     totemGroup.add(textMesh);
     
-    // Position the totem closer to the player and higher up
+    // Position with some randomness
     const angle = Math.random() * Math.PI * 2;
-    const radius = 50 + Math.random() * 50;  // Between 50 and 100 units from center
+    const radius = 50 + Math.random() * 50;
     totemGroup.position.set(
         Math.cos(angle) * radius,
-        12,  // Start higher up
+        12,
         Math.sin(angle) * radius
     );
     
-    console.log('Totem position:', totemGroup.position);
-    
-    // Add animation data
+    // Animation data with mutations
     totemGroup.userData = {
-        rotationSpeed: (Math.random() - 0.5) * 0.02,
+        rotationSpeed: mutations ? mutations.rotationSpeed : (Math.random() - 0.5) * 0.02,
         floatOffset: Math.random() * Math.PI * 2,
-        originalY: totemGroup.position.y
+        originalY: totemGroup.position.y,
+        generation: Evolution.generation
     };
     
     scene.add(totemGroup);
     enemies.push(totemGroup);
     console.log('Enemy totem created successfully');
+    return totemGroup;
 }
 
 function updateEnemies() {
@@ -492,6 +561,11 @@ window.addEventListener('resize', () => {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// Start evolution process
+setInterval(() => {
+    Evolution.evolve();
+}, 30000);  // Evolve every 30 seconds
 
 // Initialize the game when the page loads
 init();
