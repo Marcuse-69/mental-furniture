@@ -5,6 +5,7 @@ let prevTime = performance.now();
 let velocity = new THREE.Vector3();
 let direction = new THREE.Vector3();
 let joystick;
+let backgroundPlane; // Add background plane reference
 
 let backgroundMusic;
 let musicPlaying = false;
@@ -17,6 +18,55 @@ const nodeCount = 400;
 // Add enemy-related variables
 let enemies = [];
 const ENEMY_COUNT = 5;
+
+function createBackground() {
+    console.log('Creating moving background...');
+    
+    // Create a large plane for the background
+    const geometry = new THREE.PlaneGeometry(1000, 1000);
+    
+    // Load the texture
+    const textureLoader = new THREE.TextureLoader();
+    const texture = textureLoader.load('chinese-development.jpg', () => {
+        console.log('Background texture loaded');
+    });
+    
+    // Make the texture repeat
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(4, 4);
+    
+    // Create material with the texture
+    const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.5  // Semi-transparent
+    });
+    
+    // Create the plane mesh
+    backgroundPlane = new THREE.Mesh(geometry, material);
+    
+    // Position it behind everything
+    backgroundPlane.position.z = -500;
+    backgroundPlane.position.y = 200;
+    
+    // Tilt it slightly
+    backgroundPlane.rotation.x = Math.PI * 0.1;
+    
+    scene.add(backgroundPlane);
+    console.log('Background created');
+}
+
+function updateBackground() {
+    if (backgroundPlane && backgroundPlane.material.map) {
+        // Scroll the texture
+        backgroundPlane.material.map.offset.y += 0.0005;
+        
+        // Rotate slightly
+        backgroundPlane.rotation.z += 0.0001;
+    }
+}
 
 function init() {
     try {
@@ -43,6 +93,9 @@ function init() {
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         console.log('Renderer size set');
+
+        // Create the moving background
+        createBackground();
 
         // Set up controls
         controls = new THREE.PointerLockControls(camera, renderer.domElement);
@@ -378,6 +431,7 @@ function animate() {
         prevTime = time;
         
         updateEnemies();
+        updateBackground();  // Add background update
     }
 
     renderer.render(scene, camera);
