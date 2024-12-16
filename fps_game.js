@@ -19,160 +19,724 @@ const nodeCount = 400;
 let enemies = [];
 const ENEMY_COUNT = 5;
 
+// Add autonomous monitoring system
+const Monitor = {
+    lastCheck: Date.now(),
+    checkInterval: 1000, // Check every second
+    errors: [],
+    stats: {
+        fps: 0,
+        activeEnemies: 0,
+        evolutionGeneration: 0,
+        lastSpecialEvent: null
+    },
+
+    init() {
+        // Start monitoring loop
+        this.monitorLoop();
+        // Add performance monitoring
+        this.initPerformanceMonitoring();
+        // Add error catching
+        this.initErrorCatching();
+    },
+
+    monitorLoop() {
+        setInterval(() => {
+            this.checkSystemHealth();
+            this.updateStats();
+            this.autoCorrect();
+        }, this.checkInterval);
+    },
+
+    checkSystemHealth() {
+        try {
+            // Check if scene exists and is rendering
+            if (!scene || !renderer) {
+                this.log('Critical: Scene or renderer missing, attempting recreation');
+                init();
+                return;
+            }
+
+            // Check if enemies are visible and functioning
+            enemies.forEach((enemy, index) => {
+                if (!enemy.visible || !enemy.parent) {
+                    this.log(`Enemy ${index} invisible/detached, recreating`);
+                    scene.remove(enemy);
+                    enemies.splice(index, 1);
+                    createEnemy();
+                }
+            });
+
+            // Check if evolution system is running
+            if (Date.now() - Evolution.lastEvolve > 35000) {
+                this.log('Evolution system stalled, restarting');
+                Evolution.evolve();
+            }
+
+            // Check if background is working
+            if (backgroundPlane && !backgroundPlane.visible) {
+                this.log('Background invisible, recreating');
+                createBackground();
+            }
+
+            // Memory management
+            if (this.stats.fps < 30) {
+                this.log('Low FPS detected, cleaning up resources');
+                this.cleanupResources();
+            }
+        } catch (error) {
+            this.log('Health check error: ' + error.message);
+        }
+    },
+
+    updateStats() {
+        this.stats.fps = Math.round(1000 / (Date.now() - this.lastCheck));
+        this.stats.activeEnemies = enemies.length;
+        this.stats.evolutionGeneration = Evolution.generation;
+        this.lastCheck = Date.now();
+    },
+
+    autoCorrect() {
+        // Auto-adjust enemy count based on performance
+        if (this.stats.fps < 30 && enemies.length > 5) {
+            this.log('Performance low, reducing enemy count');
+            const oldest = enemies.shift();
+            scene.remove(oldest);
+        } else if (this.stats.fps > 55 && enemies.length < ENEMY_COUNT) {
+            this.log('Performance good, adding enemy');
+            createEnemy();
+        }
+
+        // Auto-adjust mutation rate based on success
+        if (Evolution.successfulMutations < Evolution.generation * 0.5) {
+            Evolution.mutationRate *= 1.2;
+            this.log('Increasing mutation rate to encourage diversity');
+        }
+    },
+
+    initPerformanceMonitoring() {
+        const stats = new Stats();
+        document.body.appendChild(stats.dom);
+        
+        function updateStats() {
+            stats.update();
+            requestAnimationFrame(updateStats);
+        }
+        updateStats();
+    },
+
+    initErrorCatching() {
+        window.onerror = (msg, url, line, col, error) => {
+            this.log(`Error: ${msg} at ${line}:${col}`);
+            this.errors.push({
+                message: msg,
+                timestamp: Date.now(),
+                handled: false
+            });
+            return false;
+        };
+    },
+
+    cleanupResources() {
+        // Remove unused textures
+        renderer.info.memory.textures = 0;
+        // Clear any unused geometries
+        THREE.Cache.clear();
+        // Force garbage collection if available
+        if (window.gc) window.gc();
+    },
+
+    log(message) {
+        console.log(`[Monitor ${new Date().toISOString()}] ${message}`);
+        // Store important logs for analysis
+        if (this.errors.length > 100) this.errors.shift();
+        this.errors.push({
+            message,
+            timestamp: Date.now(),
+            type: 'monitor'
+        });
+    }
+};
+
+// Initialize monitoring system
+Monitor.init();
+
+// Add monitoring hooks to Evolution system
+Evolution.lastEvolve = Date.now();
+Evolution.successfulMutations = 0;
+
+const originalEvolve = Evolution.evolve;
+Evolution.evolve = function() {
+    this.lastEvolve = Date.now();
+    try {
+        originalEvolve.call(this);
+        this.successfulMutations++;
+        Monitor.log(`Evolution successful: Generation ${this.generation}`);
+    } catch (error) {
+        Monitor.log(`Evolution failed: ${error.message}`);
+        // Try to recover
+        this.mutationRate *= 0.8;
+        setTimeout(() => this.evolve(), 5000);
+    }
+};
+
+// Enhance animation loop with monitoring
+const originalAnimate = animate;
+function animate() {
+    Monitor.stats.fps = Math.round(1000 / (Date.now() - Monitor.lastCheck));
+    Monitor.lastCheck = Date.now();
+    
+    try {
+        originalAnimate();
+    } catch (error) {
+        Monitor.log(`Animation error: ${error.message}`);
+        // Try to recover
+        requestAnimationFrame(animate);
+    }
+}
+
 // Add evolutionary system
 const Evolution = {
     generation: 0,
     mutationRate: 0.1,
     population: [],
+    timeAlive: 0,
     
-    createMutatedTotem: function() {
+    // Expanded mutation possibilities
+    mutations: {
+        GEOMETRIC: 'geometric',
+        TEXTURAL: 'textural',
+        BEHAVIORAL: 'behavioral',
+        HYBRID: 'hybrid',
+        PARASITIC: 'parasitic',
+        SYMBIOTIC: 'symbiotic'
+    },
+    
+    // Cultural phrases that evolve over time
+    culturalPhrases: [
+        ["MADE IN CHINA", "中国制造", "中國製造", "MADE WITH LOVE", "MADE WITH FEAR"],
+        ["EXPORT QUALITY", "IMPORT DREAMS", "QUALITY CONTROL PASSED", "QUALITY CONTROL FAILED"],
+        ["HANDLE WITH CARE", "HANDLE WITH PRAYER", "FRAGILE LIKE CAPITALISM"],
+        ["MASS PRODUCED", "MASS CONSUMED", "MASS DESTROYED", "MASS REBORN"],
+        ["AUTHENTIC COPY", "GENUINE FAKE", "REAL SIMULATION", "TRUE LIES"],
+        ["PRODUCT OF DESIRE", "PRODUCT OF DESPAIR", "PRODUCT OF THE VOID"],
+        ["INSPECT BEFORE ACCEPTING", "ACCEPT BEFORE INSPECTING", "NEVER ACCEPT"]
+    ],
+
+    // Evolve the cultural phrases themselves
+    evolvePhrases() {
+        if (Math.random() < 0.1) {
+            // Combine random parts of existing phrases
+            const set1 = Math.floor(Math.random() * this.culturalPhrases.length);
+            const set2 = Math.floor(Math.random() * this.culturalPhrases.length);
+            const phrase1 = this.culturalPhrases[set1][Math.floor(Math.random() * this.culturalPhrases[set1].length)];
+            const phrase2 = this.culturalPhrases[set2][Math.floor(Math.random() * this.culturalPhrases[set2].length)];
+            
+            // Split and recombine
+            const words1 = phrase1.split(' ');
+            const words2 = phrase2.split(' ');
+            const newPhrase = words1[Math.floor(Math.random() * words1.length)] + ' ' +
+                            words2[Math.floor(Math.random() * words2.length)];
+            
+            // Add to a random set
+            const targetSet = Math.floor(Math.random() * this.culturalPhrases.length);
+            this.culturalPhrases[targetSet].push(newPhrase);
+            Monitor.log(`New phrase evolved: ${newPhrase}`);
+        }
+    },
+    
+    createMutatedTotem() {
         const baseTotem = enemies[Math.floor(Math.random() * enemies.length)];
+        const mutationType = this.selectMutationType();
+        
         const mutation = {
+            type: mutationType,
             height: baseTotem.scale.y * (1 + (Math.random() - 0.5) * this.mutationRate),
-            color: new THREE.Color(
-                Math.random(),
-                Math.random(),
-                Math.random()
-            ),
-            complexity: Math.floor(Math.random() * 20) + 5,  // Number of decorative elements
+            color: this.evolveColor(),
+            complexity: Math.floor(Math.random() * 20) + 5,
             textContent: this.generateText(),
-            rotationSpeed: (Math.random() - 0.5) * 0.04
+            rotationSpeed: (Math.random() - 0.5) * 0.04,
+            behaviorPattern: this.evolveBehavior(),
+            geometryType: this.evolveGeometry(),
+            parasites: [], // For PARASITIC type
+            symbionts: []  // For SYMBIOTIC type
         };
+
+        // Add type-specific mutations
+        switch(mutationType) {
+            case this.mutations.GEOMETRIC:
+                mutation.segments = Math.floor(Math.random() * 8) + 3;
+                mutation.twistFactor = Math.random() * Math.PI;
+                mutation.fractalize = Math.random() < 0.3;
+                break;
+                
+            case this.mutations.TEXTURAL:
+                mutation.bumpScale = Math.random() * 2;
+                mutation.roughness = Math.random();
+                mutation.emissive = new THREE.Color(
+                    Math.random() * 0.5,
+                    Math.random() * 0.5,
+                    Math.random() * 0.5
+                );
+                break;
+                
+            case this.mutations.BEHAVIORAL:
+                mutation.seekPlayer = Math.random() < 0.3;
+                mutation.oscillationFreq = Math.random() * 2;
+                mutation.rotationAxis = new THREE.Vector3(
+                    Math.random() - 0.5,
+                    Math.random() - 0.5,
+                    Math.random() - 0.5
+                ).normalize();
+                break;
+                
+            case this.mutations.HYBRID:
+                // Combine aspects of multiple types
+                mutation.geometryType = this.evolveGeometry();
+                mutation.behaviorPattern = this.evolveBehavior();
+                mutation.texturePattern = this.evolveTexture();
+                break;
+                
+            case this.mutations.PARASITIC:
+                // Create smaller entities that attach to other totems
+                for(let i = 0; i < Math.floor(Math.random() * 5) + 1; i++) {
+                    mutation.parasites.push({
+                        size: Math.random() * 0.5,
+                        position: new THREE.Vector3(
+                            Math.random() - 0.5,
+                            Math.random() - 0.5,
+                            Math.random() - 0.5
+                        ),
+                        pulseFreq: Math.random() * 2
+                    });
+                }
+                break;
+                
+            case this.mutations.SYMBIOTIC:
+                // Create beneficial connections between totems
+                mutation.connectionType = Math.random() < 0.5 ? 'energyBeam' : 'dataStream';
+                mutation.connectionStrength = Math.random();
+                mutation.symbioticEffect = {
+                    scale: 1 + Math.random() * 0.5,
+                    pulseRate: Math.random() * 2,
+                    colorShift: Math.random() < 0.3
+                };
+                break;
+        }
+        
         return mutation;
     },
     
-    generateText: function() {
-        const phrases = [
-            "MADE IN CHINA",
-            "EXPORT QUALITY",
-            "HANDLE WITH CARE",
-            "FRAGILE DREAMS",
-            "MASS PRODUCED",
-            "AUTHENTIC COPY",
-            "GENUINE FAKE"
-        ];
-        return phrases[Math.floor(Math.random() * phrases.length)];
+    selectMutationType() {
+        const types = Object.values(this.mutations);
+        // Bias towards more complex mutations as generations progress
+        const complexityBias = Math.min(this.generation / 20, 1);
+        if (Math.random() < complexityBias) {
+            return types[Math.floor(Math.random() * 3) + 3]; // More complex types
+        }
+        return types[Math.floor(Math.random() * types.length)];
     },
     
-    evolve: function() {
+    evolveColor() {
+        const baseColor = new THREE.Color(
+            Math.random(),
+            Math.random(),
+            Math.random()
+        );
+        
+        // Add color evolution patterns
+        if (Math.random() < 0.3) {
+            // Create complementary color
+            const hsl = {};
+            baseColor.getHSL(hsl);
+            hsl.h = (hsl.h + 0.5) % 1;
+            baseColor.setHSL(hsl.h, hsl.s, hsl.l);
+        }
+        
+        return baseColor;
+    },
+    
+    evolveBehavior() {
+        return {
+            movePattern: ['circular', 'sine', 'spiral', 'chase'][Math.floor(Math.random() * 4)],
+            speed: Math.random() * 2,
+            interactionRadius: 10 + Math.random() * 20,
+            respondToMusic: Math.random() < 0.3,
+            affectsNeighbors: Math.random() < 0.2
+        };
+    },
+    
+    evolveGeometry() {
+        return {
+            baseShape: ['box', 'cylinder', 'sphere', 'torusKnot'][Math.floor(Math.random() * 4)],
+            deformAmount: Math.random() * 0.5,
+            recursionLevel: Math.floor(Math.random() * 3),
+            smoothness: Math.random()
+        };
+    },
+    
+    evolveTexture() {
+        return {
+            pattern: ['noise', 'gradient', 'cellular', 'fractal'][Math.floor(Math.random() * 4)],
+            scale: Math.random() * 2,
+            distortion: Math.random() * 0.5,
+            animated: Math.random() < 0.3
+        };
+    },
+
+    generateText() {
+        // Evolve the phrases first
+        this.evolvePhrases();
+        
+        // Select from evolved phrases
+        const set = this.culturalPhrases[Math.floor(Math.random() * this.culturalPhrases.length)];
+        return set[Math.floor(Math.random() * set.length)];
+    },
+    
+    evolve() {
         this.generation++;
+        this.timeAlive += 30; // 30 seconds between evolutions
         Monitor.log(`Starting evolution generation ${this.generation}`);
         
-        // Create new enemy with mutations
-        const mutation = this.createMutatedTotem();
-        const newEnemy = createEnemy(mutation);
+        // Increase complexity over time
+        if (this.generation % 5 === 0) {
+            this.mutationRate *= 1.1;
+            ENEMY_COUNT = Math.min(ENEMY_COUNT + 1, 15); // Gradually increase population
+        }
         
-        // Remove oldest enemy if we're at capacity
-        if (enemies.length > ENEMY_COUNT) {
+        // Create new enemies with mutations
+        const numNewEnemies = Math.floor(Math.random() * 3) + 1; // 1-3 new enemies per evolution
+        for (let i = 0; i < numNewEnemies; i++) {
+            const mutation = this.createMutatedTotem();
+            const newEnemy = createEnemy(mutation);
+            
+            // Handle special mutation types
+            if (mutation.type === this.mutations.PARASITIC) {
+                this.attachParasites(newEnemy, mutation);
+            } else if (mutation.type === this.mutations.SYMBIOTIC) {
+                this.createSymbioticLinks(newEnemy, mutation);
+            }
+        }
+        
+        // Remove oldest enemies if we're over capacity
+        while (enemies.length > ENEMY_COUNT) {
             const oldest = enemies.shift();
             scene.remove(oldest);
         }
         
-        // Increase mutation rate occasionally
-        if (this.generation % 10 === 0) {
-            this.mutationRate *= 1.1;
-            Monitor.log(`Mutation rate increased to ${this.mutationRate}`);
+        // Occasionally trigger special events
+        if (Math.random() < 0.1) {
+            this.triggerSpecialEvent();
+        }
+        
+        Monitor.log(`Evolution complete. Population: ${enemies.length}, Mutation Rate: ${this.mutationRate}`);
+    },
+    
+    attachParasites(host, mutation) {
+        mutation.parasites.forEach(parasite => {
+            const parasiteMesh = new THREE.Mesh(
+                new THREE.SphereGeometry(parasite.size),
+                new THREE.MeshPhongMaterial({
+                    color: 0xff0000,
+                    emissive: 0x330000
+                })
+            );
+            parasiteMesh.position.copy(parasite.position);
+            host.add(parasiteMesh);
+            
+            // Add pulsing animation
+            parasiteMesh.userData.pulseFreq = parasite.pulseFreq;
+            parasiteMesh.userData.originalScale = parasite.size;
+        });
+    },
+    
+    createSymbioticLinks(newEnemy, mutation) {
+        // Find closest enemy to form symbiotic relationship
+        let closest = null;
+        let minDist = Infinity;
+        enemies.forEach(enemy => {
+            if (enemy !== newEnemy) {
+                const dist = newEnemy.position.distanceTo(enemy.position);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closest = enemy;
+                }
+            }
+        });
+        
+        if (closest) {
+            const connection = this.createSymbioticConnection(newEnemy, closest, mutation);
+            scene.add(connection);
+            newEnemy.userData.symbioticPartner = closest;
+            newEnemy.userData.symbioticConnection = connection;
+        }
+    },
+    
+    createSymbioticConnection(enemy1, enemy2, mutation) {
+        const points = [];
+        points.push(enemy1.position);
+        points.push(enemy2.position);
+        
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({
+            color: mutation.connectionType === 'energyBeam' ? 0x00ff00 : 0x0000ff,
+            linewidth: 2,
+            transparent: true,
+            opacity: 0.6
+        });
+        
+        return new THREE.Line(geometry, material);
+    },
+    
+    triggerSpecialEvent() {
+        const events = [
+            this.massColorShift.bind(this),
+            this.geometricResonance.bind(this),
+            this.culturalRevolution.bind(this),
+            this.massHybridization.bind(this)
+        ];
+        
+        const event = events[Math.floor(Math.random() * events.length)];
+        event();
+    },
+    
+    massColorShift() {
+        Monitor.log('Special Event: Mass Color Shift');
+        const newColor = this.evolveColor();
+        enemies.forEach(enemy => {
+            enemy.children[0].material.color.lerp(newColor, 0.5);
+        });
+    },
+    
+    geometricResonance() {
+        Monitor.log('Special Event: Geometric Resonance');
+        const geometry = this.evolveGeometry();
+        enemies.forEach(enemy => {
+            enemy.userData.resonating = true;
+            enemy.scale.multiplyScalar(1.2);
+        });
+    },
+    
+    culturalRevolution() {
+        Monitor.log('Special Event: Cultural Revolution');
+        // Create entirely new set of phrases
+        this.culturalPhrases.push([
+            "DIGITAL DREAMS",
+            "VIRTUAL REALITY",
+            "SYNTHETIC TRUTH",
+            "ARTIFICIAL WISDOM"
+        ]);
+    },
+    
+    massHybridization() {
+        Monitor.log('Special Event: Mass Hybridization');
+        enemies.forEach(enemy => {
+            const hybrid = this.createMutatedTotem();
+            hybrid.type = this.mutations.HYBRID;
+            Object.assign(enemy.userData, hybrid);
+        });
+    }
+};
+
+// Add autonomous site checker
+const SiteMonitor = {
+    checkInterval: 5000, // Check every 5 seconds
+    lastCheck: Date.now(),
+    healthEndpoint: 'https://marcuse-69.github.io/mental-furniture/',
+    
+    init() {
+        this.startChecking();
+        this.enhanceBackground();
+    },
+    
+    startChecking() {
+        setInterval(() => this.checkSite(), this.checkInterval);
+    },
+    
+    async checkSite() {
+        try {
+            const response = await fetch(this.healthEndpoint, {
+                method: 'HEAD',
+                mode: 'no-cors', // Allow checking cross-origin
+                cache: 'no-cache'
+            });
+            Monitor.log('Site check successful');
+            this.lastCheck = Date.now();
+        } catch (error) {
+            Monitor.log('Site check failed: ' + error.message);
+            this.attemptRecovery();
+        }
+    },
+    
+    attemptRecovery() {
+        // Force reload assets
+        createBackground();
+        // Reinitialize if needed
+        if (!scene || !renderer) {
+            init();
+        }
+    },
+    
+    enhanceBackground() {
+        if (!backgroundPlane) return;
+        
+        // Create multiple layers
+        this.createBackgroundLayers();
+        // Add dynamic elements
+        this.addDynamicElements();
+    },
+    
+    createBackgroundLayers() {
+        const layers = 3;
+        backgroundLayers = [];
+        
+        for (let i = 0; i < layers; i++) {
+            const layer = backgroundPlane.clone();
+            layer.position.z = -800 + (i * 50);
+            layer.material = layer.material.clone();
+            layer.material.opacity = 0.3 - (i * 0.05);
+            layer.userData.scrollSpeed = 0.0002 * (1 + i * 0.5);
+            layer.userData.rotationSpeed = 0.0001 * (1 + i * 0.3);
+            scene.add(layer);
+            backgroundLayers.push(layer);
+        }
+    },
+    
+    addDynamicElements() {
+        // Add floating architectural elements
+        const elements = 20;
+        for (let i = 0; i < elements; i++) {
+            const geometry = new THREE.BoxGeometry(20, 40, 20);
+            const material = new THREE.MeshPhongMaterial({
+                color: 0xcccccc,
+                transparent: true,
+                opacity: 0.3
+            });
+            const building = new THREE.Mesh(geometry, material);
+            
+            building.position.set(
+                Math.random() * 1000 - 500,
+                Math.random() * 400 - 200,
+                -700 - Math.random() * 200
+            );
+            
+            building.userData.floatSpeed = Math.random() * 0.5;
+            building.userData.rotationSpeed = (Math.random() - 0.5) * 0.01;
+            
+            scene.add(building);
+            backgroundElements.push(building);
         }
     }
 };
 
+// Initialize site monitor
+SiteMonitor.init();
+
+// Enhance background update function
+function updateBackground() {
+    const time = performance.now() * 0.001;
+    
+    // Update main background
+    if (backgroundPlane && backgroundPlane.material.map) {
+        try {
+            // Complex scrolling pattern
+            backgroundPlane.material.map.offset.y += Math.sin(time * 0.1) * 0.0001;
+            backgroundPlane.material.map.offset.x += Math.cos(time * 0.15) * 0.0001;
+            
+            // Dynamic rotation
+            backgroundPlane.rotation.z += Math.sin(time * 0.05) * 0.0001;
+            backgroundPlane.rotation.x = Math.PI * 0.1 + Math.sin(time * 0.1) * 0.05;
+        } catch (error) {
+            console.error('Error updating main background:', error);
+        }
+    }
+    
+    // Update background layers
+    if (backgroundLayers) {
+        backgroundLayers.forEach((layer, index) => {
+            if (layer.material.map) {
+                layer.material.map.offset.y += layer.userData.scrollSpeed;
+                layer.rotation.z += layer.userData.rotationSpeed;
+                
+                // Parallax effect
+                layer.position.x = Math.sin(time * 0.1 + index) * 20;
+                layer.position.y = Math.cos(time * 0.15 + index) * 10;
+            }
+        });
+    }
+    
+    // Update architectural elements
+    if (backgroundElements) {
+        backgroundElements.forEach(element => {
+            // Float up and down
+            element.position.y += Math.sin(time * element.userData.floatSpeed) * 0.1;
+            
+            // Rotate
+            element.rotation.y += element.userData.rotationSpeed;
+            
+            // Move forward and reset
+            element.position.z += 0.1;
+            if (element.position.z > -100) {
+                element.position.z = -900;
+            }
+        });
+    }
+}
+
+// Add new global variables
+let backgroundLayers = [];
+let backgroundElements = [];
+
+// Enhance createBackground function
 function createBackground() {
-    console.log('Creating moving background...');
+    console.log('Creating enhanced moving background...');
     
-    // Create a large plane for the background
     const geometry = new THREE.PlaneGeometry(2000, 2000);
-    
-    // Load the texture with proper error handling
     const textureLoader = new THREE.TextureLoader();
-    textureLoader.crossOrigin = 'anonymous';  // Enable cross-origin loading
+    textureLoader.crossOrigin = 'anonymous';
     
-    textureLoader.load(
-        'chinese-development.jpg',
-        (texture) => {
-            console.log('Background texture loaded successfully');
-            
-            // Make the texture repeat
-            texture.wrapS = THREE.RepeatWrapping;
-            texture.wrapT = THREE.RepeatWrapping;
-            texture.repeat.set(2, 2);
-            
-            // Create material with the texture
-            const material = new THREE.MeshBasicMaterial({
-                map: texture,
-                side: THREE.DoubleSide,
-                transparent: true,
-                opacity: 0.8
-            });
-            
-            // Create the plane mesh
-            backgroundPlane = new THREE.Mesh(geometry, material);
-            
-            // Position it behind everything
-            backgroundPlane.position.z = -800;
-            backgroundPlane.position.y = 0;
-            
-            // Tilt it slightly
-            backgroundPlane.rotation.x = Math.PI * 0.1;
-            
-            scene.add(backgroundPlane);
-            console.log('Background added to scene');
-        },
-        (progress) => {
-            console.log('Loading background texture:', (progress.loaded / progress.total * 100) + '%');
-        },
-        (error) => {
-            console.error('Error loading background texture:', error);
-            // Try loading from absolute GitHub URL as fallback
-            const githubUrl = 'https://raw.githubusercontent.com/Marcuse-69/mental-furniture/main/chinese-development.jpg';
+    const loadTexture = (url) => {
+        return new Promise((resolve, reject) => {
             textureLoader.load(
-                githubUrl,
+                url,
                 (texture) => {
-                    console.log('Background texture loaded from GitHub');
                     texture.wrapS = THREE.RepeatWrapping;
                     texture.wrapT = THREE.RepeatWrapping;
                     texture.repeat.set(2, 2);
-                    
-                    const material = new THREE.MeshBasicMaterial({
-                        map: texture,
-                        side: THREE.DoubleSide,
-                        transparent: true,
-                        opacity: 0.8
-                    });
-                    
-                    backgroundPlane = new THREE.Mesh(geometry, material);
-                    backgroundPlane.position.z = -800;
-                    backgroundPlane.position.y = 0;
-                    backgroundPlane.rotation.x = Math.PI * 0.1;
-                    
-                    scene.add(backgroundPlane);
-                    console.log('Background added to scene from GitHub URL');
+                    resolve(texture);
                 },
                 undefined,
-                (secondError) => {
-                    console.error('Failed to load background from GitHub:', secondError);
-                }
+                reject
             );
-        }
-    );
-}
-
-function updateBackground() {
-    if (backgroundPlane && backgroundPlane.material.map) {
-        try {
-            // Scroll the texture more slowly
-            backgroundPlane.material.map.offset.y += 0.0002;
-            
-            // Subtle rotation
-            backgroundPlane.rotation.z += 0.0001;
-            
-            // Log successful update periodically
-            if (Math.random() < 0.001) {  // Log roughly every 1000 frames
-                console.log('Background updating successfully');
-            }
-        } catch (error) {
-            console.error('Error updating background:', error);
-        }
-    }
+        });
+    };
+    
+    // Try loading from both paths
+    Promise.any([
+        loadTexture('chinese-development.jpg'),
+        loadTexture('https://raw.githubusercontent.com/Marcuse-69/mental-furniture/main/chinese-development.jpg')
+    ]).then(texture => {
+        const material = new THREE.MeshBasicMaterial({
+            map: texture,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.8
+        });
+        
+        backgroundPlane = new THREE.Mesh(geometry, material);
+        backgroundPlane.position.z = -800;
+        backgroundPlane.rotation.x = Math.PI * 0.1;
+        
+        scene.add(backgroundPlane);
+        console.log('Enhanced background created');
+        
+        // Create additional layers and elements
+        SiteMonitor.enhanceBackground();
+    }).catch(error => {
+        console.error('Failed to load background texture:', error);
+        Monitor.log('Background texture loading failed, will retry');
+        setTimeout(createBackground, 5000); // Retry after 5 seconds
+    });
 }
 
 function init() {
@@ -512,17 +1076,72 @@ function createEnemy(mutations = null) {
     return totemGroup;
 }
 
+// Update the enemy update function to handle new behaviors
 function updateEnemies() {
     const time = performance.now() * 0.001;
     enemies.forEach((enemy, index) => {
-        // Rotate around Y axis
-        enemy.rotation.y += enemy.userData.rotationSpeed;
+        const mutation = enemy.userData;
         
-        // Float up and down with larger amplitude
-        enemy.position.y = enemy.userData.originalY + 
-            Math.sin(time + enemy.userData.floatOffset) * 2;  // Increased amplitude
+        // Basic rotation and floating
+        enemy.rotation.y += mutation.rotationSpeed;
+        enemy.position.y = mutation.originalY + 
+            Math.sin(time + mutation.floatOffset) * 2;
             
-        // Always face the camera
+        // Handle behavioral patterns
+        if (mutation.behaviorPattern) {
+            switch(mutation.behaviorPattern.movePattern) {
+                case 'circular':
+                    enemy.position.x = Math.cos(time * mutation.behaviorPattern.speed) * mutation.behaviorPattern.interactionRadius;
+                    enemy.position.z = Math.sin(time * mutation.behaviorPattern.speed) * mutation.behaviorPattern.interactionRadius;
+                    break;
+                case 'sine':
+                    enemy.position.x += Math.sin(time * mutation.behaviorPattern.speed) * 0.1;
+                    break;
+                case 'spiral':
+                    const radius = (Math.sin(time * 0.5) + 1) * mutation.behaviorPattern.interactionRadius;
+                    enemy.position.x = Math.cos(time * mutation.behaviorPattern.speed) * radius;
+                    enemy.position.z = Math.sin(time * mutation.behaviorPattern.speed) * radius;
+                    break;
+                case 'chase':
+                    if (camera) {
+                        const dirToPlayer = new THREE.Vector3().subVectors(camera.position, enemy.position);
+                        dirToPlayer.normalize();
+                        enemy.position.add(dirToPlayer.multiplyScalar(mutation.behaviorPattern.speed * 0.1));
+                    }
+                    break;
+            }
+        }
+        
+        // Update parasites
+        enemy.children.forEach(child => {
+            if (child.userData.pulseFreq) {
+                const scale = child.userData.originalScale * (1 + Math.sin(time * child.userData.pulseFreq) * 0.2);
+                child.scale.set(scale, scale, scale);
+            }
+        });
+        
+        // Update symbiotic connections
+        if (enemy.userData.symbioticPartner && enemy.userData.symbioticConnection) {
+            const points = [
+                enemy.position,
+                enemy.userData.symbioticPartner.position
+            ];
+            enemy.userData.symbioticConnection.geometry.setFromPoints(points);
+            
+            // Apply symbiotic effects
+            if (enemy.userData.symbioticEffect) {
+                const effect = enemy.userData.symbioticEffect;
+                const scale = 1 + Math.sin(time * effect.pulseRate) * 0.1;
+                enemy.scale.setScalar(scale * effect.scale);
+                
+                if (effect.colorShift) {
+                    const hue = (time * 0.1) % 1;
+                    enemy.children[0].material.color.setHSL(hue, 1, 0.5);
+                }
+            }
+        }
+        
+        // Always face camera with text
         enemy.children[1].lookAt(camera.position);
     });
 }
@@ -569,3 +1188,456 @@ setInterval(() => {
 
 // Initialize the game when the page loads
 init();
+
+// Add new evolutionary systems
+const EvolutionaryCore = {
+    // 3. Architectural Evolution System
+    Architecture: {
+        styles: ['brutalist', 'postmodern', 'deconstructivist', 'metabolist', 'hyperreal'],
+        currentEra: 0,
+        mutationRate: 0.15,
+        
+        evolveStyle() {
+            const style = {
+                form: this.styles[Math.floor(Math.random() * this.styles.length)],
+                complexity: Math.random() * 0.8 + 0.2,
+                verticalityBias: Math.sin(this.currentEra * 0.1) * 0.5 + 0.5,
+                density: Math.random() * 0.7 + 0.3,
+                decay: Math.random() < 0.3
+            };
+            
+            if (style.decay) {
+                style.decayPattern = {
+                    rate: Math.random() * 0.1,
+                    type: ['erosion', 'collapse', 'overgrowth'][Math.floor(Math.random() * 3)],
+                    affects: ['structure', 'texture', 'color'][Math.floor(Math.random() * 3)]
+                };
+            }
+            
+            return style;
+        },
+        
+        applyStyle(building, style) {
+            const geometry = new THREE.BoxGeometry(
+                20 * (1 + style.complexity),
+                40 * (1 + style.verticalityBias),
+                20 * (1 + style.complexity)
+            );
+            
+            if (style.form === 'deconstructivist') {
+                this.deformGeometry(geometry, style.complexity);
+            }
+            
+            const material = building.material;
+            material.roughness = style.complexity;
+            material.metalness = style.form === 'brutalist' ? 0.8 : 0.2;
+            
+            if (style.decay) {
+                this.applyDecay(building, style.decayPattern);
+            }
+        },
+        
+        deformGeometry(geometry, amount) {
+            const positions = geometry.attributes.position.array;
+            for (let i = 0; i < positions.length; i += 3) {
+                positions[i] += (Math.random() - 0.5) * amount * 10;
+                positions[i + 1] += (Math.random() - 0.5) * amount * 10;
+                positions[i + 2] += (Math.random() - 0.5) * amount * 10;
+            }
+            geometry.computeVertexNormals();
+        },
+        
+        applyDecay(building, pattern) {
+            switch (pattern.type) {
+                case 'erosion':
+                    building.material.displacementScale = pattern.rate * 5;
+                    break;
+                case 'collapse':
+                    building.rotation.z += pattern.rate;
+                    break;
+                case 'overgrowth':
+                    building.material.color.setHSL(0.3, pattern.rate, 0.5);
+                    break;
+            }
+        }
+    },
+
+    // 4. Social Network Evolution
+    SocialNetwork: {
+        nodes: new Map(),
+        connections: [],
+        
+        createNode(entity) {
+            const node = {
+                entity: entity,
+                connections: [],
+                influence: Math.random(),
+                ideology: {
+                    collectivism: Math.random(),
+                    progress: Math.random(),
+                    tradition: Math.random()
+                }
+            };
+            this.nodes.set(entity.uuid, node);
+            return node;
+        },
+        
+        evolveNetwork() {
+            // Form new connections
+            this.nodes.forEach((node1, id1) => {
+                this.nodes.forEach((node2, id2) => {
+                    if (id1 !== id2 && Math.random() < 0.1) {
+                        const compatibility = this.calculateCompatibility(node1, node2);
+                        if (compatibility > 0.7) {
+                            this.formConnection(node1, node2, compatibility);
+                        }
+                    }
+                });
+            });
+            
+            // Evolve ideologies
+            this.nodes.forEach(node => {
+                node.connections.forEach(connection => {
+                    this.exchangeIdeologies(node, connection.target, connection.strength);
+                });
+            });
+        },
+        
+        calculateCompatibility(node1, node2) {
+            return 1 - Math.abs(node1.ideology.collectivism - node2.ideology.collectivism) *
+                Math.abs(node1.ideology.progress - node2.ideology.progress) *
+                Math.abs(node1.ideology.tradition - node2.ideology.tradition);
+        },
+        
+        formConnection(node1, node2, strength) {
+            const connection = {
+                source: node1,
+                target: node2,
+                strength: strength,
+                type: strength > 0.9 ? 'strong' : 'weak'
+            };
+            node1.connections.push(connection);
+            node2.connections.push({...connection, source: node2, target: node1});
+            this.connections.push(connection);
+            
+            // Visualize connection
+            const line = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([
+                    node1.entity.position,
+                    node2.entity.position
+                ]),
+                new THREE.LineBasicMaterial({
+                    color: new THREE.Color().setHSL(strength, 1, 0.5),
+                    transparent: true,
+                    opacity: strength
+                })
+            );
+            scene.add(line);
+            connection.visual = line;
+        },
+        
+        exchangeIdeologies(node1, node2, strength) {
+            ['collectivism', 'progress', 'tradition'].forEach(aspect => {
+                const diff = node2.ideology[aspect] - node1.ideology[aspect];
+                node1.ideology[aspect] += diff * strength * 0.1;
+                node2.ideology[aspect] -= diff * strength * 0.1;
+            });
+        }
+    },
+
+    // 5. Economic Evolution System
+    Economy: {
+        resources: new Map(),
+        transactions: [],
+        marketPressure: 0,
+        
+        initializeMarket() {
+            this.resources.set('space', { value: 1.0, volatility: 0.2 });
+            this.resources.set('authenticity', { value: 1.0, volatility: 0.4 });
+            this.resources.set('cultural_capital', { value: 1.0, volatility: 0.3 });
+        },
+        
+        evolveMarket() {
+            // Update resource values
+            this.resources.forEach((resource, key) => {
+                resource.value *= 1 + (Math.random() - 0.5) * resource.volatility;
+                resource.value = Math.max(0.1, Math.min(10, resource.value));
+            });
+            
+            // Update market pressure
+            this.marketPressure = Math.sin(Date.now() * 0.0001) * 0.5 + 0.5;
+            
+            // Affect entity behaviors
+            enemies.forEach(enemy => {
+                this.applyEconomicPressure(enemy);
+            });
+        },
+        
+        applyEconomicPressure(entity) {
+            const spaceValue = this.resources.get('space').value;
+            const authenticity = this.resources.get('authenticity').value;
+            
+            // Scale based on market values
+            entity.scale.setScalar(1 + (spaceValue - 1) * 0.2);
+            
+            // Modify behavior based on authenticity value
+            if (entity.userData.behaviorPattern) {
+                entity.userData.behaviorPattern.speed *= 1 + (authenticity - 1) * 0.1;
+            }
+            
+            // Apply market pressure effects
+            if (this.marketPressure > 0.8) {
+                entity.material.emissive.setScalar(this.marketPressure * 0.2);
+            }
+        },
+        
+        recordTransaction(buyer, seller, resource, amount) {
+            this.transactions.push({
+                timestamp: Date.now(),
+                buyer: buyer.uuid,
+                seller: seller.uuid,
+                resource: resource,
+                amount: amount,
+                price: this.resources.get(resource).value
+            });
+        }
+    },
+
+    // 6. Memetic Evolution System
+    Memetics: {
+        memes: [],
+        activeMemes: new Set(),
+        
+        createMeme(content, type = 'visual') {
+            return {
+                content: content,
+                type: type,
+                strength: Math.random(),
+                mutation_rate: 0.1,
+                spread_rate: Math.random() * 0.3,
+                carriers: new Set(),
+                generation: 0,
+                parent: null
+            };
+        },
+        
+        evolveMemes() {
+            // Spread existing memes
+            this.activeMemes.forEach(meme => {
+                enemies.forEach(enemy => {
+                    if (!meme.carriers.has(enemy) && Math.random() < meme.spread_rate) {
+                        this.infectWithMeme(enemy, meme);
+                    }
+                });
+                
+                // Possible mutation
+                if (Math.random() < meme.mutation_rate) {
+                    const mutatedMeme = this.mutateMeme(meme);
+                    this.activeMemes.add(mutatedMeme);
+                }
+            });
+        },
+        
+        mutateMeme(parentMeme) {
+            const meme = this.createMeme(parentMeme.content, parentMeme.type);
+            meme.parent = parentMeme;
+            meme.generation = parentMeme.generation + 1;
+            
+            // Mutate properties
+            meme.strength = parentMeme.strength * (0.8 + Math.random() * 0.4);
+            meme.spread_rate = parentMeme.spread_rate * (0.8 + Math.random() * 0.4);
+            
+            // Mutate content based on type
+            if (meme.type === 'visual') {
+                meme.content = this.mutateVisualMeme(parentMeme.content);
+            } else if (meme.type === 'behavioral') {
+                meme.content = this.mutateBehavioralMeme(parentMeme.content);
+            }
+            
+            return meme;
+        },
+        
+        mutateVisualMeme(content) {
+            // Modify visual properties
+            return {
+                ...content,
+                color: content.color.clone().offsetHSL(Math.random() * 0.1, 0, 0),
+                scale: content.scale * (0.9 + Math.random() * 0.2),
+                complexity: content.complexity * (0.9 + Math.random() * 0.2)
+            };
+        },
+        
+        mutateBehavioralMeme(content) {
+            // Modify behavior patterns
+            return {
+                ...content,
+                frequency: content.frequency * (0.9 + Math.random() * 0.2),
+                amplitude: content.amplitude * (0.9 + Math.random() * 0.2),
+                pattern: content.pattern.map(p => p * (0.9 + Math.random() * 0.2))
+            };
+        },
+        
+        infectWithMeme(entity, meme) {
+            meme.carriers.add(entity);
+            
+            // Apply meme effects
+            if (meme.type === 'visual') {
+                this.applyVisualMeme(entity, meme);
+            } else if (meme.type === 'behavioral') {
+                this.applyBehavioralMeme(entity, meme);
+            }
+        },
+        
+        applyVisualMeme(entity, meme) {
+            if (entity.material) {
+                entity.material.color.lerp(meme.content.color, meme.strength);
+                entity.scale.multiplyScalar(1 + (meme.content.scale - 1) * meme.strength);
+            }
+        },
+        
+        applyBehavioralMeme(entity, meme) {
+            if (entity.userData.behaviorPattern) {
+                entity.userData.behaviorPattern.frequency *= 1 + (meme.content.frequency - 1) * meme.strength;
+                entity.userData.behaviorPattern.amplitude *= 1 + (meme.content.amplitude - 1) * meme.strength;
+            }
+        }
+    },
+
+    // 7. Environmental Evolution System
+    Environment: {
+        conditions: {
+            pressure: 1.0,
+            entropy: 0.0,
+            chaos: 0.0
+        },
+        
+        zones: [],
+        activeEffects: new Set(),
+        
+        createZone(position, radius, type) {
+            const zone = {
+                position: position.clone(),
+                radius: radius,
+                type: type,
+                strength: Math.random(),
+                evolution: 0,
+                affects: new Set()
+            };
+            this.zones.push(zone);
+            
+            // Visualize zone
+            const geometry = new THREE.SphereGeometry(radius, 32, 32);
+            const material = new THREE.MeshBasicMaterial({
+                color: this.getZoneColor(type),
+                transparent: true,
+                opacity: 0.2
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.copy(position);
+            scene.add(mesh);
+            zone.visual = mesh;
+            
+            return zone;
+        },
+        
+        evolveEnvironment() {
+            // Update global conditions
+            this.conditions.entropy += 0.001;
+            this.conditions.chaos = Math.sin(Date.now() * 0.001) * 0.5 + 0.5;
+            this.conditions.pressure = Math.cos(Date.now() * 0.0005) * 0.3 + 0.7;
+            
+            // Evolve zones
+            this.zones.forEach(zone => {
+                zone.evolution += 0.01;
+                zone.strength = 0.5 + Math.sin(zone.evolution) * 0.5;
+                
+                // Apply zone effects
+                enemies.forEach(enemy => {
+                    const distance = enemy.position.distanceTo(zone.position);
+                    if (distance < zone.radius) {
+                        this.applyZoneEffect(enemy, zone, 1 - (distance / zone.radius));
+                    }
+                });
+                
+                // Zone visual effects
+                zone.visual.material.opacity = 0.2 * zone.strength;
+                zone.visual.scale.setScalar(1 + Math.sin(zone.evolution * 2) * 0.1);
+            });
+            
+            // Create new zones occasionally
+            if (Math.random() < 0.01) {
+                const position = new THREE.Vector3(
+                    (Math.random() - 0.5) * 200,
+                    (Math.random() - 0.5) * 200,
+                    (Math.random() - 0.5) * 200
+                );
+                const type = ['pressure', 'entropy', 'chaos'][Math.floor(Math.random() * 3)];
+                this.createZone(position, 20 + Math.random() * 30, type);
+            }
+            
+            // Remove old zones
+            this.zones = this.zones.filter(zone => {
+                if (zone.evolution > Math.PI * 2) {
+                    scene.remove(zone.visual);
+                    return false;
+                }
+                return true;
+            });
+        },
+        
+        getZoneColor(type) {
+            switch(type) {
+                case 'pressure': return 0xff0000;
+                case 'entropy': return 0x00ff00;
+                case 'chaos': return 0x0000ff;
+                default: return 0xffffff;
+            }
+        },
+        
+        applyZoneEffect(entity, zone, intensity) {
+            switch(zone.type) {
+                case 'pressure':
+                    entity.scale.multiplyScalar(1 - intensity * 0.1);
+                    if (entity.material) {
+                        entity.material.emissive.setScalar(intensity * 0.5);
+                    }
+                    break;
+                    
+                case 'entropy':
+                    if (entity.userData.behaviorPattern) {
+                        entity.userData.behaviorPattern.speed *= 1 + intensity * 0.2;
+                    }
+                    entity.rotation.x += intensity * 0.01;
+                    break;
+                    
+                case 'chaos':
+                    entity.position.add(new THREE.Vector3(
+                        (Math.random() - 0.5) * intensity,
+                        (Math.random() - 0.5) * intensity,
+                        (Math.random() - 0.5) * intensity
+                    ));
+                    break;
+            }
+            
+            zone.affects.add(entity);
+        }
+    }
+};
+
+// Initialize all evolutionary systems
+function initializeEvolutionSystems() {
+    EvolutionaryCore.Economy.initializeMarket();
+    
+    // Start evolution cycles
+    setInterval(() => {
+        EvolutionaryCore.Architecture.currentEra++;
+        EvolutionaryCore.SocialNetwork.evolveNetwork();
+        EvolutionaryCore.Economy.evolveMarket();
+        EvolutionaryCore.Memetics.evolveMemes();
+        EvolutionaryCore.Environment.evolveEnvironment();
+    }, 1000);
+}
+
+// Call initialization after scene setup
+init();
+initializeEvolutionSystems();
