@@ -687,35 +687,296 @@ function updateBackground() {
 let backgroundLayers = [];
 let backgroundElements = [];
 
-// Enhance createBackground function
-function createBackground() {
-    console.log('Creating enhanced moving background...');
-    
-    const geometry = new THREE.PlaneGeometry(2000, 2000);
-    const textureLoader = new THREE.TextureLoader();
-    textureLoader.crossOrigin = 'anonymous';
-    
-    const loadTexture = (url) => {
+// Add autonomous media manager
+const MediaManager = {
+    checkInterval: 60000, // Check every minute
+    lastMusicCheck: Date.now(),
+    lastBackgroundCheck: Date.now(),
+    musicSources: [
+        '1. MultiTone - 120 bpm - 001 2.mp3',
+        'https://raw.githubusercontent.com/Marcuse-69/mental-furniture/main/1. MultiTone - 120 bpm - 001 2.mp3'
+    ],
+    backgroundSources: [
+        'chinese-development.jpg',
+        'https://raw.githubusercontent.com/Marcuse-69/mental-furniture/main/chinese-development.jpg',
+        'https://marcuse-69.github.io/mental-furniture/chinese-development.jpg'
+    ],
+    currentMusicIndex: 0,
+    currentBackgroundIndex: 0,
+
+    init() {
+        this.startMediaChecks();
+        this.initializeBackgroundRetry();
+    },
+
+    startMediaChecks() {
+        setInterval(() => {
+            this.checkAndUpdateMedia();
+        }, this.checkInterval);
+    },
+
+    async checkAndUpdateMedia() {
+        try {
+            await this.checkBackground();
+            await this.checkMusic();
+        } catch (error) {
+            Monitor.log('Media check failed: ' + error.message);
+        }
+    },
+
+    async checkBackground() {
+        Monitor.log('Checking background image...');
+        if (!backgroundPlane || !backgroundPlane.visible) {
+            Monitor.log('Background not visible, attempting reload');
+            await this.loadBackgroundFromNextSource();
+        }
+    },
+
+    async loadBackgroundFromNextSource() {
+        const maxAttempts = this.backgroundSources.length;
+        let attempts = 0;
+
+        while (attempts < maxAttempts) {
+            try {
+                const source = this.backgroundSources[this.currentBackgroundIndex];
+                Monitor.log(`Attempting to load background from: ${source}`);
+                
+                const texture = await this.loadTexturePromise(source);
+                this.updateBackground(texture);
+                Monitor.log('Background loaded successfully');
+                return;
+            } catch (error) {
+                Monitor.log(`Failed to load background from source ${this.currentBackgroundIndex}: ${error.message}`);
+                this.currentBackgroundIndex = (this.currentBackgroundIndex + 1) % this.backgroundSources.length;
+                attempts++;
+            }
+        }
+        throw new Error('All background sources failed');
+    },
+
+    loadTexturePromise(url) {
         return new Promise((resolve, reject) => {
-            textureLoader.load(
-                url,
-                (texture) => {
-                    texture.wrapS = THREE.RepeatWrapping;
-                    texture.wrapT = THREE.RepeatWrapping;
-                    texture.repeat.set(2, 2);
-                    resolve(texture);
-                },
+            const loader = new THREE.TextureLoader();
+            loader.crossOrigin = 'anonymous';
+            loader.load(url,
+                texture => resolve(texture),
                 undefined,
-                reject
+                error => reject(error)
             );
         });
-    };
+    },
+
+    updateBackground(texture) {
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(2, 2);
+
+        if (!backgroundPlane) {
+            const geometry = new THREE.PlaneGeometry(2000, 2000);
+            const material = new THREE.MeshBasicMaterial({
+                map: texture,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.8
+            });
+            backgroundPlane = new THREE.Mesh(geometry, material);
+            backgroundPlane.position.z = -800;
+            backgroundPlane.rotation.x = Math.PI * 0.1;
+            scene.add(backgroundPlane);
+        } else {
+            backgroundPlane.material.map = texture;
+            backgroundPlane.material.needsUpdate = true;
+        }
+
+        // Create parallax layers
+        this.createParallaxLayers();
+    },
+
+    createParallaxLayers() {
+        // Remove old layers
+        if (backgroundLayers) {
+            backgroundLayers.forEach(layer => scene.remove(layer));
+        }
+        backgroundLayers = [];
+
+        // Create new layers
+        const layerCount = 3;
+        for (let i = 0; i < layerCount; i++) {
+            const layer = backgroundPlane.clone();
+            layer.position.z = -800 + (i * 50);
+            layer.material = layer.material.clone();
+            layer.material.opacity = 0.3 - (i * 0.05);
+            layer.userData.scrollSpeed = 0.0002 * (1 + i * 0.5);
+            layer.userData.rotationSpeed = 0.0001 * (1 + i * 0.3);
+            scene.add(layer);
+            backgroundLayers.push(layer);
+        }
+    },
+
+    async checkMusic() {
+        if (!musicPlaying) return;
+
+        const currentTime = Date.now();
+        if (currentTime - this.lastMusicCheck >= this.checkInterval) {
+            Monitor.log('Checking music...');
+            await this.loadMusicFromNextSource();
+            this.lastMusicCheck = currentTime;
+        }
+    },
+
+    async loadMusicFromNextSource() {
+        const maxAttempts = this.musicSources.length;
+        let attempts = 0;
+
+        while (attempts < maxAttempts) {
+            try {
+                const source = this.musicSources[this.currentMusicIndex];
+                Monitor.log(`Attempting to load music from: ${source}`);
+                
+                await this.loadAndPlayMusic(source);
+                Monitor.log('Music loaded successfully');
+                return;
+            } catch (error) {
+                Monitor.log(`Failed to load music from source ${this.currentMusicIndex}: ${error.message}`);
+                this.currentMusicIndex = (this.currentMusicIndex + 1) % this.musicSources.length;
+                attempts++;
+            }
+        }
+        throw new Error('All music sources failed');
+    },
+
+    async loadAndPlayMusic(url) {
+        return new Promise((resolve, reject) => {
+            const newMusic = new Audio(url);
+            newMusic.addEventListener('canplaythrough', () => {
+                if (backgroundMusic) {
+                    backgroundMusic.pause();
+                }
+                backgroundMusic = newMusic;
+                backgroundMusic.loop = true;
+                backgroundMusic.play()
+                    .then(() => resolve())
+                    .catch(error => reject(error));
+            });
+            newMusic.addEventListener('error', () => reject(new Error('Music loading failed')));
+        });
+    },
+
+    initializeBackgroundRetry() {
+        // Initial background load
+        this.loadBackgroundFromNextSource()
+            .catch(error => {
+                Monitor.log('Initial background load failed, will retry: ' + error.message);
+                // Retry every 5 seconds until successful
+                const retryInterval = setInterval(() => {
+                    this.loadBackgroundFromNextSource()
+                        .then(() => clearInterval(retryInterval))
+                        .catch(error => Monitor.log('Background retry failed: ' + error.message));
+                }, 5000);
+            });
+    }
+};
+
+// Initialize media manager
+MediaManager.init();
+
+// Update createBackground function to use MediaManager
+function createBackground() {
+    MediaManager.loadBackgroundFromNextSource()
+        .catch(error => Monitor.log('Background creation failed: ' + error.message));
+}
+
+// Streamline background system
+const BackgroundSystem = {
+    textureLoaded: false,
+    retryCount: 0,
+    maxRetries: 5,
+    retryDelay: 2000,
     
-    // Try loading from both paths
-    Promise.any([
-        loadTexture('chinese-development.jpg'),
-        loadTexture('https://raw.githubusercontent.com/Marcuse-69/mental-furniture/main/chinese-development.jpg')
-    ]).then(texture => {
+    async init() {
+        console.log('Initializing background system...');
+        
+        // Clear any existing background
+        if (backgroundPlane) {
+            scene.remove(backgroundPlane);
+            backgroundPlane = null;
+        }
+        
+        // Clear any existing layers
+        if (backgroundLayers) {
+            backgroundLayers.forEach(layer => scene.remove(layer));
+            backgroundLayers = [];
+        }
+        
+        await this.loadBackground();
+    },
+    
+    async loadBackground() {
+        if (this.retryCount >= this.maxRetries) {
+            console.error('Max retries reached for background loading');
+            return;
+        }
+        
+        try {
+            console.log('Attempting to load background texture...');
+            const texture = await this.loadTexture();
+            this.createBackgroundPlane(texture);
+            this.textureLoaded = true;
+            console.log('Background loaded successfully');
+        } catch (error) {
+            console.error('Background load failed:', error);
+            this.retryCount++;
+            setTimeout(() => this.loadBackground(), this.retryDelay);
+        }
+    },
+    
+    loadTexture() {
+        return new Promise((resolve, reject) => {
+            const loader = new THREE.TextureLoader();
+            loader.crossOrigin = 'anonymous';
+            
+            // Try loading from different paths
+            const tryLoad = (paths, index = 0) => {
+                if (index >= paths.length) {
+                    reject(new Error('All paths failed'));
+                    return;
+                }
+                
+                const path = paths[index];
+                console.log(`Trying to load texture from: ${path}`);
+                
+                loader.load(
+                    path,
+                    (texture) => {
+                        console.log(`Texture loaded from ${path}`);
+                        resolve(texture);
+                    },
+                    undefined,
+                    () => {
+                        console.log(`Failed to load from ${path}, trying next...`);
+                        tryLoad(paths, index + 1);
+                    }
+                );
+            };
+            
+            // Define paths in order of preference
+            const paths = [
+                'chinese-development.jpg',
+                'lacanian_desire_background.jpg',
+                'https://raw.githubusercontent.com/Marcuse-69/mental-furniture/main/chinese-development.jpg',
+                'https://marcuse-69.github.io/mental-furniture/chinese-development.jpg'
+            ];
+            
+            tryLoad(paths);
+        });
+    },
+    
+    createBackgroundPlane(texture) {
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(2, 2);
+        
+        const geometry = new THREE.PlaneGeometry(2000, 2000);
         const material = new THREE.MeshBasicMaterial({
             map: texture,
             side: THREE.DoubleSide,
@@ -728,16 +989,53 @@ function createBackground() {
         backgroundPlane.rotation.x = Math.PI * 0.1;
         
         scene.add(backgroundPlane);
-        console.log('Enhanced background created');
         
-        // Create additional layers and elements
-        SiteMonitor.enhanceBackground();
-    }).catch(error => {
-        console.error('Failed to load background texture:', error);
-        Monitor.log('Background texture loading failed, will retry');
-        setTimeout(createBackground, 5000); // Retry after 5 seconds
-    });
-}
+        // Create parallax effect
+        this.createParallaxLayers();
+    },
+    
+    createParallaxLayers() {
+        const layerCount = 3;
+        backgroundLayers = [];
+        
+        for (let i = 0; i < layerCount; i++) {
+            const layer = backgroundPlane.clone();
+            layer.position.z = -800 + (i * 50);
+            layer.material = layer.material.clone();
+            layer.material.opacity = 0.3 - (i * 0.05);
+            layer.userData = {
+                scrollSpeed: 0.0002 * (1 + i * 0.5),
+                rotationSpeed: 0.0001 * (1 + i * 0.3)
+            };
+            scene.add(layer);
+            backgroundLayers.push(layer);
+        }
+    },
+    
+    update(time) {
+        if (!this.textureLoaded) return;
+        
+        try {
+            // Update main background
+            if (backgroundPlane && backgroundPlane.material.map) {
+                backgroundPlane.material.map.offset.y += Math.sin(time * 0.1) * 0.0001;
+                backgroundPlane.rotation.z += Math.sin(time * 0.05) * 0.0001;
+            }
+            
+            // Update parallax layers
+            backgroundLayers.forEach((layer, index) => {
+                if (layer && layer.material.map) {
+                    layer.material.map.offset.y += layer.userData.scrollSpeed;
+                    layer.rotation.z += layer.userData.rotationSpeed;
+                    layer.position.x = Math.sin(time * 0.1 + index) * 20;
+                    layer.position.y = Math.cos(time * 0.15 + index) * 10;
+                }
+            });
+        } catch (error) {
+            console.error('Error in background update:', error);
+        }
+    }
+};
 
 function init() {
     try {
@@ -813,6 +1111,11 @@ function init() {
         
         animate();
         console.log('Animation loop started');
+
+        // Initialize background after scene setup
+        BackgroundSystem.init().catch(error => {
+            console.error('Background initialization failed:', error);
+        });
     } catch (error) {
         console.error('Error during initialization:', error);
     }
@@ -1148,9 +1451,10 @@ function updateEnemies() {
 
 function animate() {
     requestAnimationFrame(animate);
-
-    if (controls.isLocked === true) {
-        const time = performance.now();
+    
+    const time = performance.now() * 0.001;
+    
+    if (controls.isLocked) {
         const delta = (time - prevTime) / 1000;
 
         velocity.x -= velocity.x * 10.0 * delta;
@@ -1169,9 +1473,9 @@ function animate() {
         prevTime = time;
         
         updateEnemies();
-        updateBackground();  // Add background update
+        BackgroundSystem.update(time);
     }
-
+    
     renderer.render(scene, camera);
 }
 
