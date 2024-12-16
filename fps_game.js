@@ -261,11 +261,13 @@ function autoCameraMovement() {
 }
 
 function createEnemy() {
+    console.log('Creating enemy totem...');
+    
     // Create totem group
     const totemGroup = new THREE.Group();
     
-    // Create totem body (stack of boxes)
-    const bodyGeometry = new THREE.BoxGeometry(2, 6, 2);
+    // Create totem body (stack of boxes) - MUCH LARGER NOW
+    const bodyGeometry = new THREE.BoxGeometry(8, 24, 8);  // 4x larger
     const bodyMaterial = new THREE.MeshPhongMaterial({ 
         color: 0xA0522D,
         roughness: 0.8,
@@ -274,52 +276,57 @@ function createEnemy() {
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
     
     // Add random carvings/patterns using multiple small boxes
-    for(let i = 0; i < 8; i++) {
+    for(let i = 0; i < 12; i++) {  // More carvings
         const carving = new THREE.Mesh(
-            new THREE.BoxGeometry(0.4, 0.4, 0.4),
+            new THREE.BoxGeometry(1.6, 1.6, 1.6),  // 4x larger
             new THREE.MeshPhongMaterial({ color: 0x8B4513 })
         );
         carving.position.set(
-            (Math.random() - 0.5) * 1.5,
-            (Math.random() - 0.5) * 5,
-            1.1
+            (Math.random() - 0.5) * 6,
+            (Math.random() - 0.5) * 20,
+            4.4
         );
         body.add(carving);
     }
 
-    // Create "Made in China" text
+    // Create "Made in China" text - LARGER
     const loader = new THREE.TextureLoader();
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
-    canvas.width = 256;
-    canvas.height = 64;
+    canvas.width = 512;  // Larger canvas
+    canvas.height = 128;
     context.fillStyle = 'white';
-    context.fillRect(0, 0, 256, 64);
-    context.font = 'bold 32px Arial';
+    context.fillRect(0, 0, 512, 128);
+    context.font = 'bold 64px Arial';  // Larger font
     context.fillStyle = 'red';
     context.textAlign = 'center';
-    context.fillText('MADE IN CHINA', 128, 40);
+    context.fillText('MADE IN CHINA', 256, 80);
     
     const texture = new THREE.CanvasTexture(canvas);
-    const textGeometry = new THREE.PlaneGeometry(2, 0.5);
+    const textGeometry = new THREE.PlaneGeometry(8, 2);  // 4x larger
     const textMaterial = new THREE.MeshBasicMaterial({ 
         map: texture,
         transparent: true,
-        opacity: 0.9
+        opacity: 0.9,
+        side: THREE.DoubleSide  // Visible from both sides
     });
     const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-    textMesh.position.set(0, 2, 1.1);
+    textMesh.position.set(0, 8, 4.4);  // Adjusted position
     
     // Add everything to the group
     totemGroup.add(body);
     totemGroup.add(textMesh);
     
-    // Position the totem randomly in the world
+    // Position the totem closer to the player and higher up
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 50 + Math.random() * 50;  // Between 50 and 100 units from center
     totemGroup.position.set(
-        (Math.random() - 0.5) * 100,
-        0,
-        (Math.random() - 0.5) * 100
+        Math.cos(angle) * radius,
+        12,  // Start higher up
+        Math.sin(angle) * radius
     );
+    
+    console.log('Totem position:', totemGroup.position);
     
     // Add animation data
     totemGroup.userData = {
@@ -330,17 +337,18 @@ function createEnemy() {
     
     scene.add(totemGroup);
     enemies.push(totemGroup);
+    console.log('Enemy totem created successfully');
 }
 
 function updateEnemies() {
     const time = performance.now() * 0.001;
-    enemies.forEach(enemy => {
+    enemies.forEach((enemy, index) => {
         // Rotate around Y axis
         enemy.rotation.y += enemy.userData.rotationSpeed;
         
-        // Float up and down
+        // Float up and down with larger amplitude
         enemy.position.y = enemy.userData.originalY + 
-            Math.sin(time + enemy.userData.floatOffset) * 0.5;
+            Math.sin(time + enemy.userData.floatOffset) * 2;  // Increased amplitude
             
         // Always face the camera
         enemy.children[1].lookAt(camera.position);
