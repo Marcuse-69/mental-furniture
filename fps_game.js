@@ -23,48 +23,98 @@ function createBackground() {
     console.log('Creating moving background...');
     
     // Create a large plane for the background
-    const geometry = new THREE.PlaneGeometry(1000, 1000);
+    const geometry = new THREE.PlaneGeometry(2000, 2000);
     
-    // Load the texture
+    // Load the texture with proper error handling
     const textureLoader = new THREE.TextureLoader();
-    const texture = textureLoader.load('chinese-development.jpg', () => {
-        console.log('Background texture loaded');
-    });
+    textureLoader.crossOrigin = 'anonymous';  // Enable cross-origin loading
     
-    // Make the texture repeat
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(4, 4);
-    
-    // Create material with the texture
-    const material = new THREE.MeshBasicMaterial({
-        map: texture,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.5  // Semi-transparent
-    });
-    
-    // Create the plane mesh
-    backgroundPlane = new THREE.Mesh(geometry, material);
-    
-    // Position it behind everything
-    backgroundPlane.position.z = -500;
-    backgroundPlane.position.y = 200;
-    
-    // Tilt it slightly
-    backgroundPlane.rotation.x = Math.PI * 0.1;
-    
-    scene.add(backgroundPlane);
-    console.log('Background created');
+    textureLoader.load(
+        'chinese-development.jpg',
+        (texture) => {
+            console.log('Background texture loaded successfully');
+            
+            // Make the texture repeat
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(2, 2);
+            
+            // Create material with the texture
+            const material = new THREE.MeshBasicMaterial({
+                map: texture,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.8
+            });
+            
+            // Create the plane mesh
+            backgroundPlane = new THREE.Mesh(geometry, material);
+            
+            // Position it behind everything
+            backgroundPlane.position.z = -800;
+            backgroundPlane.position.y = 0;
+            
+            // Tilt it slightly
+            backgroundPlane.rotation.x = Math.PI * 0.1;
+            
+            scene.add(backgroundPlane);
+            console.log('Background added to scene');
+        },
+        (progress) => {
+            console.log('Loading background texture:', (progress.loaded / progress.total * 100) + '%');
+        },
+        (error) => {
+            console.error('Error loading background texture:', error);
+            // Try loading from absolute GitHub URL as fallback
+            const githubUrl = 'https://raw.githubusercontent.com/Marcuse-69/mental-furniture/main/chinese-development.jpg';
+            textureLoader.load(
+                githubUrl,
+                (texture) => {
+                    console.log('Background texture loaded from GitHub');
+                    texture.wrapS = THREE.RepeatWrapping;
+                    texture.wrapT = THREE.RepeatWrapping;
+                    texture.repeat.set(2, 2);
+                    
+                    const material = new THREE.MeshBasicMaterial({
+                        map: texture,
+                        side: THREE.DoubleSide,
+                        transparent: true,
+                        opacity: 0.8
+                    });
+                    
+                    backgroundPlane = new THREE.Mesh(geometry, material);
+                    backgroundPlane.position.z = -800;
+                    backgroundPlane.position.y = 0;
+                    backgroundPlane.rotation.x = Math.PI * 0.1;
+                    
+                    scene.add(backgroundPlane);
+                    console.log('Background added to scene from GitHub URL');
+                },
+                undefined,
+                (secondError) => {
+                    console.error('Failed to load background from GitHub:', secondError);
+                }
+            );
+        }
+    );
 }
 
 function updateBackground() {
     if (backgroundPlane && backgroundPlane.material.map) {
-        // Scroll the texture
-        backgroundPlane.material.map.offset.y += 0.0005;
-        
-        // Rotate slightly
-        backgroundPlane.rotation.z += 0.0001;
+        try {
+            // Scroll the texture more slowly
+            backgroundPlane.material.map.offset.y += 0.0002;
+            
+            // Subtle rotation
+            backgroundPlane.rotation.z += 0.0001;
+            
+            // Log successful update periodically
+            if (Math.random() < 0.001) {  // Log roughly every 1000 frames
+                console.log('Background updating successfully');
+            }
+        } catch (error) {
+            console.error('Error updating background:', error);
+        }
     }
 }
 
